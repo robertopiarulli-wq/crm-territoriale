@@ -500,7 +500,7 @@ function switchTab(tab){
   if(tab==='reminder') renderReminders();
   if(tab==='export') renderExportStats();
   if(tab==='pipeline') renderPipeline();
-  if(tab==='attivita') renderAttivita();
+  if(tab==='attivita') loadAttivita().then(()=>renderAttivita());
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1613,7 +1613,7 @@ async function loadAttivita(){
 
 async function saveAttivitaRecord(a){
   if(useCloud){
-    try { await supabaseClient.from('attivita').upsert(a); } catch(e){}
+    try { const {error} = await supabaseClient.from('attivita').upsert(a); if(error) showToast('Errore salvataggio: '+error.message,'danger'); } catch(e){ showToast('Errore: '+e.message,'danger'); }
   }
   const idx = attivita.findIndex(x=>x.id===a.id);
   if(idx>=0) attivita[idx]=a; else attivita.unshift(a);
@@ -1763,7 +1763,7 @@ async function salvaAttivita(){
 
   closeLegendModal();
   showToast('✅ Attività salvata!','success');
-  if(document.getElementById('panel-attivita').classList.contains('active')) renderAttivita();
+  renderAttivita();
 }
 
 </script>
