@@ -1657,10 +1657,13 @@ function renderAttivita(){
   const periodo = parseInt(document.getElementById('att-filter-periodo').value)||0;
   const oggi    = new Date();
 
-  let list = [...attivita].sort((a,b)=>b.data.localeCompare(a.data));
+  console.log('renderAttivita: attivita array=', attivita.length, attivita[0]);
+  let list = [...attivita].filter(a=>a.data); // escludi record senza data
+  list.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
   if(tipo)   list = list.filter(a=>a.tipo===tipo);
   if(contId) list = list.filter(a=>String(a.contatto_id)===String(contId));
   if(periodo){ const cutoff = new Date(oggi); cutoff.setDate(cutoff.getDate()-periodo); list = list.filter(a=>new Date(a.data)>=cutoff); }
+  console.log('renderAttivita: list dopo filtri=', list.length);
 
   // Stats
   const statsEl = document.getElementById('attivita-stats');
