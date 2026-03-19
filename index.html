@@ -1687,7 +1687,6 @@ function renderAttivita(){
 
   if(!list.length){ el.innerHTML=`<div style="text-align:center;padding:48px;color:var(--muted)">Nessuna attività registrata</div>`; return; }
 
-  try {
   el.innerHTML = list.map(a=>{
     const c = contacts.find(x=>String(x.id)===String(a.contatto_id));
     const t = ATT_TIPOS[a.tipo]||ATT_TIPOS['altro'];
