@@ -1665,8 +1665,12 @@ function renderAttivita(){
   if(periodo){ const cutoff = new Date(oggi); cutoff.setDate(cutoff.getDate()-periodo); list = list.filter(a=>new Date(a.data)>=cutoff); }
   console.log('renderAttivita: list dopo filtri=', list.length);
 
-  // Stats
+  // Stats e lista con guard null-safe
   const statsEl = document.getElementById('attivita-stats');
+  const el = document.getElementById('attivita-list');
+  console.log('DOM elements:', !!statsEl, !!el);
+  if(!statsEl || !el){ console.error('Panel DOM elements not found!'); return; }
+
   const totali  = list.length;
   const visite  = list.filter(a=>a.tipo==='visita').length;
   const chiam   = list.filter(a=>a.tipo==='chiamata').length;
@@ -1681,9 +1685,9 @@ function renderAttivita(){
     <div style="font-size:10px;color:var(--muted);text-transform:uppercase">${l}</div>
   </div>`).join('');
 
-  const el = document.getElementById('attivita-list');
   if(!list.length){ el.innerHTML=`<div style="text-align:center;padding:48px;color:var(--muted)">Nessuna attività registrata</div>`; return; }
 
+  try {
   el.innerHTML = list.map(a=>{
     const c = contacts.find(x=>String(x.id)===String(a.contatto_id));
     const t = ATT_TIPOS[a.tipo]||ATT_TIPOS['altro'];
