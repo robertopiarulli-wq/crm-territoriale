@@ -96,6 +96,29 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
 #rm-map .leaflet-container{height:100% !important;width:100% !important}
 .leaflet-container{height:100%;width:100%}
 .rem-badge-warn{background:rgba(234,179,8,.15);color:var(--warn);border:1px solid rgba(234,179,8,.3)}
+
+/* AGENDA GIORNALIERA */
+.agenda-section{margin-bottom:22px}
+.agenda-section-title{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.agenda-card{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;transition:border-color .2s;flex-wrap:wrap}
+.agenda-card:hover{border-color:var(--accent-dim)}
+.agenda-card.urgente{border-left:3px solid var(--danger)}
+.agenda-card.oggi{border-left:3px solid var(--accent)}
+.agenda-card.presto{border-left:3px solid var(--warn)}
+/* DASHBOARD KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;transition:border-color .2s}
+.kpi-card:hover{border-color:var(--accent-dim)}
+.kpi-val{font-size:30px;font-weight:800;line-height:1}
+.kpi-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;font-family:'DM Mono',monospace;margin-top:6px}
+.kpi-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+@media(max-width:700px){.kpi-charts{grid-template-columns:1fr}}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px}
+.chart-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:14px}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.bar-label{font-size:12px;min-width:90px;max-width:90px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;background:var(--surface);border-radius:4px;height:20px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width .6s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-size:10px;font-weight:700;color:#fff;font-family:'DM Mono',monospace;min-width:24px}
 </style>
 </head>
 <body>
@@ -168,6 +191,8 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
     <button class="tab-btn" onclick="switchTab('roadmap')" id="tab-roadmap">🛣 Road Map</button>
     <button class="tab-btn" onclick="switchTab('pipeline')" id="tab-pipeline">📊 Pipeline</button>
     <button class="tab-btn" onclick="switchTab('attivita')" id="tab-attivita">📝 Attività</button>
+    <button class="tab-btn" onclick="switchTab('agenda')" id="tab-agenda">📅 Agenda</button>
+    <button class="tab-btn" onclick="switchTab('kpi')" id="tab-kpi">📈 KPI</button>
   </div>
 
   <!-- CONTENT -->
@@ -301,6 +326,29 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
   <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px" id="kanban-board"></div>
 </div>
 
+    <!-- AGENDA GIORNALIERA -->
+    <div class="panel" id="panel-agenda">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-weight:800;font-size:18px">📅 Agenda Giornaliera</div>
+          <div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px" id="agenda-date"></div>
+        </div>
+        <button class="btn-primary" onclick="openNewAttivita()" style="font-size:12px">➕ Registra attività</button>
+      </div>
+      <div id="agenda-content"></div>
+    </div>
+
+    <!-- DASHBOARD KPI -->
+    <div class="panel" id="panel-kpi">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+        <div style="font-weight:800;font-size:18px">📈 Dashboard KPI</div>
+        <div class="mono" style="font-size:11px;color:var(--muted)" id="kpi-updated"></div>
+      </div>
+      <div id="kpi-content"></div>
+    </div>
+
+  </div>
+</div>
     <!-- ATTIVITÀ -->
     <div class="panel" id="panel-attivita">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
@@ -329,9 +377,6 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
       <div id="attivita-stats" style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap"></div>
       <div id="attivita-list"></div>
     </div>
-
-  </div>
-</div>
 
 
 <!-- MODAL -->
@@ -502,6 +547,8 @@ function switchTab(tab){
   if(tab==='export') renderExportStats();
   if(tab==='pipeline') renderPipeline();
   if(tab==='attivita') loadAttivita().then(()=>renderAttivita());
+  if(tab==='agenda') loadAttivita().then(()=>renderAgenda());
+  if(tab==='kpi') loadAttivita().then(()=>renderKPI());
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1789,6 +1836,115 @@ async function salvaAttivita(){
   showToast('✅ Attività salvata!','success');
   await loadAttivita();
   renderAttivita();
+}
+
+// ══════════════════════════════════════════════════════════════
+// AGENDA GIORNALIERA
+// ══════════════════════════════════════════════════════════════
+function renderAgenda(){
+  const today = todayStr();
+  const d = new Date(today+'T00:00:00');
+  const days=['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+  const months=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  const dateEl=document.getElementById('agenda-date');
+  if(dateEl) dateEl.textContent=days[d.getDay()]+' '+d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear();
+  const in7=new Date(d); in7.setDate(in7.getDate()+7);
+  const in7Str=in7.toISOString().split('T')[0];
+  const oggiList=contacts.filter(c=>c.reminderAttivo&&c.prossimoContatto===today);
+  const scadutiList=contacts.filter(c=>c.reminderAttivo&&c.prossimoContatto&&c.prossimoContatto<today).sort((a,b)=>a.prossimoContatto.localeCompare(b.prossimoContatto));
+  const prossimiList=contacts.filter(c=>c.reminderAttivo&&c.prossimoContatto>today&&c.prossimoContatto<=in7Str).sort((a,b)=>a.prossimoContatto.localeCompare(b.prossimoContatto));
+  const attOggi=attivita.filter(a=>a.data===today);
+  const el=document.getElementById('agenda-content');
+  if(!el) return;
+  const agendaCard=(c,cssClass)=>{
+    const tel=c.telefono||c.cellulare||'';
+    const waNum=(c.cellulare||'').replace(/\s+/g,'').replace(/^\+39/,'39').replace(/^0039/,'39').replace(/^3/,'393');
+    const dd=c.prossimoContatto?daysDiff(c.prossimoContatto):null;
+    const ddLbl=dd===null?'':dd===0?`<span style="color:var(--accent);font-weight:700"> · Oggi</span>`:dd<0?`<span style="color:var(--danger);font-weight:700"> · ${Math.abs(dd)}gg fa</span>`:`<span style="color:var(--warn)"> · tra ${dd}gg</span>`;
+    return `<div class="agenda-card ${cssClass}">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:14px;margin-bottom:2px">${esc(c.nome)}${c.azienda?`<span style="font-weight:400;color:var(--muted);font-size:12px"> — ${esc(c.azienda)}</span>`:''}${ddLbl}</div>
+        <div style="font-size:12px;color:var(--muted)">📍 ${c.comune||PROVINCE[c.provincia]?.n||c.provincia} (${c.provincia})</div>
+        ${c.note?`<div style="font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.note.substring(0,90))}${c.note.length>90?'...':''}</div>`:''}
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
+        ${tel?`<a href="tel:${tel}" class="btn-info" style="padding:6px 12px;text-decoration:none;font-size:12px;border-radius:8px;display:inline-flex;align-items:center">📞</a>`:''}
+        ${c.cellulare?`<a href="https://wa.me/${waNum}" target="_blank" style="padding:6px 12px;background:#25d36620;border:1px solid #25d36640;border-radius:8px;text-decoration:none;color:#25d366;font-size:12px;font-weight:700;display:inline-flex;align-items:center">WA</a>`:''}
+        <button onclick="openNewAttivita(${c.id})" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">✏ Log</button>
+      </div>
+    </div>`;
+  };
+  const attCard=a=>{
+    const c=contacts.find(x=>String(x.id)===String(a.contatto_id));
+    const t=ATT_TIPOS[a.tipo]||ATT_TIPOS['altro'];
+    return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${t.color};border-radius:10px;padding:11px 14px;margin-bottom:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="background:${t.color}22;color:${t.color};border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700;white-space:nowrap">${t.label}</span>
+      <span style="font-weight:600;font-size:13px">${c?esc(c.nome):'Contatto eliminato'}</span>
+      ${a.esito?`<span style="font-size:11px;color:var(--muted)">${a.esito}</span>`:''}
+      ${a.note?`<span style="font-size:11px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.note.substring(0,60))}</span>`:''}
+    </div>`;
+  };
+  let out='';
+  if(scadutiList.length) out+=`<div class="agenda-section"><div class="agenda-section-title"><span style="color:var(--danger)">🔴</span> Scaduti (${scadutiList.length}) — da richiamare subito</div>${scadutiList.map(c=>agendaCard(c,'urgente')).join('')}</div>`;
+  out+=`<div class="agenda-section"><div class="agenda-section-title"><span style="color:var(--accent)">🟠</span> Da contattare oggi${oggiList.length?' ('+oggiList.length+')':''}</div>${oggiList.length?oggiList.map(c=>agendaCard(c,'oggi')).join(''):'<div style="color:var(--muted);font-size:13px;padding:14px 0">Nessun contatto previsto per oggi 🎉</div>'}</div>`;
+  if(prossimiList.length) out+=`<div class="agenda-section"><div class="agenda-section-title"><span style="color:var(--warn)">🟡</span> Prossimi 7 giorni (${prossimiList.length})</div>${prossimiList.map(c=>agendaCard(c,'presto')).join('')}</div>`;
+  out+=`<div class="agenda-section"><div class="agenda-section-title"><span>📝</span> Attività registrate oggi (${attOggi.length})</div>${attOggi.length?attOggi.map(attCard).join(''):'<div style="color:var(--muted);font-size:13px;padding:14px 0">Nessuna attività ancora registrata oggi</div>'}</div>`;
+  el.innerHTML=out;
+}
+
+// ══════════════════════════════════════════════════════════════
+// DASHBOARD KPI
+// ══════════════════════════════════════════════════════════════
+function renderKPI(){
+  const today=todayStr();
+  const el=document.getElementById('kpi-content');
+  if(!el) return;
+  const updEl=document.getElementById('kpi-updated');
+  if(updEl) updEl.textContent='Aggiornato · '+new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+  const totale=contacts.length;
+  const clienti=contacts.filter(c=>(c.tags||[]).includes('cliente')).length;
+  const prospect=contacts.filter(c=>(c.tags||[]).includes('prospect')).length;
+  const scaduti=contacts.filter(c=>c.reminderAttivo&&c.prossimoContatto&&c.prossimoContatto<today).length;
+  const convRate=totale?Math.round(clienti/totale*100):0;
+  const now=new Date();
+  const attMese=attivita.filter(a=>{const d=new Date(a.data);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}).length;
+  const attTot=attivita.length;
+  // Att per tipo
+  const attPerTipo=Object.entries(ATT_TIPOS).map(([k,v])=>({label:v.label,color:v.color,count:attivita.filter(a=>a.tipo===k).length})).sort((a,b)=>b.count-a.count);
+  const maxAtt=Math.max(...attPerTipo.map(x=>x.count),1);
+  // Top province
+  const byProv={};contacts.forEach(c=>{byProv[c.provincia]=(byProv[c.provincia]||0)+1;});
+  const topProv=Object.entries(byProv).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxProv=Math.max(...topProv.map(x=>x[1]),1);
+  // Pipeline
+  const byStage={};PIPELINE_STAGES.forEach(s=>{byStage[s.id]=0;});
+  contacts.forEach(c=>{const s=getPipelineStage(c);if(s in byStage)byStage[s]++;});
+  const pipeData=PIPELINE_STAGES.map(s=>({label:s.label,color:s.color,count:byStage[s.id]||0})).filter(x=>x.count>0);
+  const maxPipe=Math.max(...pipeData.map(x=>x.count),1);
+  // Trend 14gg
+  const trend=[];
+  for(let i=13;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const ds=d.toISOString().split('T')[0];trend.push({day:d.getDate(),ds,count:attivita.filter(a=>a.data===ds).length});}
+  const maxTrend=Math.max(...trend.map(x=>x.count),1);
+  const bar=(label,count,max,color)=>`<div class="bar-row"><div class="bar-label" title="${label}">${label}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(Math.round(count/max*100),count?8:0)}%;background:${color}">${count}</div></div></div>`;
+  const trendBar=item=>`<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1"><div style="font-size:9px;color:${item.count>0?'var(--accent)':'transparent'};font-family:'DM Mono',monospace">${item.count}</div><div style="width:100%;background:var(--surface);border-radius:3px 3px 0 0;height:60px;display:flex;align-items:flex-end"><div style="width:100%;background:${item.ds===today?'var(--warn)':'var(--accent)'};border-radius:3px 3px 0 0;opacity:.85;height:${Math.max(Math.round(item.count/maxTrend*100),item.count?6:0)}%;transition:height .4s ease"></div></div><div style="font-size:9px;color:var(--muted)">${item.day}</div></div>`;
+  el.innerHTML=`
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-val" style="color:var(--text)">${totale}</div><div class="kpi-lbl">Contatti</div></div>
+      <div class="kpi-card"><div class="kpi-val" style="color:var(--success)">${clienti}</div><div class="kpi-lbl">Clienti</div></div>
+      <div class="kpi-card"><div class="kpi-val" style="color:var(--info)">${prospect}</div><div class="kpi-lbl">Prospect</div></div>
+      <div class="kpi-card"><div class="kpi-val" style="color:var(--accent)">${convRate}%</div><div class="kpi-lbl">Conv. rate</div></div>
+      <div class="kpi-card"><div class="kpi-val" style="color:var(--danger)">${scaduti}</div><div class="kpi-lbl">Scaduti</div></div>
+      <div class="kpi-card"><div class="kpi-val" style="color:var(--warn)">${attMese}</div><div class="kpi-lbl">Att. mese</div></div>
+      <div class="kpi-card"><div class="kpi-val" style="color:var(--muted)">${attTot}</div><div class="kpi-lbl">Att. totali</div></div>
+    </div>
+    <div class="kpi-charts">
+      <div class="chart-card"><div class="chart-title">Attività per tipo</div>${attivita.length?attPerTipo.map(x=>bar(x.label,x.count,maxAtt,x.color)).join(''):'<div style="color:var(--muted);font-size:12px;text-align:center;padding:24px 0">Nessuna attività</div>'}</div>
+      <div class="chart-card"><div class="chart-title">Top province</div>${topProv.length?topProv.map(([p,n])=>bar(PROVINCE[p]?.n||p,n,maxProv,'var(--accent)')).join(''):'<div style="color:var(--muted);font-size:12px;text-align:center;padding:24px 0">Nessun dato</div>'}</div>
+    </div>
+    <div class="kpi-charts">
+      <div class="chart-card"><div class="chart-title">Pipeline distribution</div>${pipeData.length?pipeData.map(x=>bar(x.label,x.count,maxPipe,x.color)).join(''):'<div style="color:var(--muted);font-size:12px;text-align:center;padding:24px 0">Nessun contatto in pipeline</div>'}</div>
+      <div class="chart-card"><div class="chart-title">Trend attività — ultimi 14gg</div><div style="display:flex;gap:2px;align-items:flex-end;height:80px;margin-top:10px">${trend.map(trendBar).join('')}</div><div style="font-size:10px;color:var(--muted);margin-top:6px;text-align:right;font-family:'DM Mono',monospace">🟠 = oggi</div></div>
+    </div>`;
 }
 
 </script>
