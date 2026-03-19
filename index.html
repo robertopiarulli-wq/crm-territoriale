@@ -80,6 +80,12 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
 .sync-dot.syncing{animation:syncPulse .8s infinite;background:var(--warn)}
 .sync-dot.error{background:var(--danger)}
 .rem-badge-danger{background:rgba(239,68,68,.15);color:var(--danger);border:1px solid rgba(239,68,68,.3)}
+.kanban-col{background:var(--surface);border-radius:12px;padding:14px;min-width:200px;flex:1;min-height:400px}
+.kanban-col-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.kanban-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;transition:transform .15s,box-shadow .15s}
+.kanban-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.kanban-card.dragging{opacity:.4}
+.kanban-col.drag-over{border:2px dashed var(--accent)}
 #rm-map{height:380px !important;min-height:380px !important}
 #rm-map .leaflet-container{height:100% !important;width:100% !important}
 .leaflet-container{height:100%;width:100%}
@@ -154,6 +160,7 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
     <button class="tab-btn" onclick="switchTab('reminder')" id="tab-reminder">🔔 Reminder</button>
     <button class="tab-btn" onclick="switchTab('export')" id="tab-export">📤 Export</button>
     <button class="tab-btn" onclick="switchTab('roadmap')" id="tab-roadmap">🛣 Road Map</button>
+    <button class="tab-btn" onclick="switchTab('pipeline')" id="tab-pipeline">📊 Pipeline</button>
   </div>
 
   <!-- CONTENT -->
@@ -275,6 +282,20 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
 
 
   </div>
+</div>
+
+<!-- PIPELINE -->
+<div class="panel" id="panel-pipeline">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+    <div style="font-weight:700;font-size:16px">📊 Pipeline Vendite</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <select id="pipeline-prov" onchange="renderPipeline()" style="width:auto;font-size:12px;padding:6px 10px">
+        <option value="">Tutte le province</option>
+      </select>
+      <div style="font-size:12px;color:var(--muted)" id="pipeline-stats"></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px" id="kanban-board"></div>
 </div>
 
 <!-- MODAL -->
@@ -443,6 +464,7 @@ function switchTab(tab){
   if(tab==='lista') renderContacts();
   if(tab==='reminder') renderReminders();
   if(tab==='export') renderExportStats();
+  if(tab==='pipeline') renderPipeline();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -638,17 +660,9 @@ function openModal(contact){
         </div>
       </div>
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-top:20px">
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${v('cellulare')?`<a href="https://wa.me/${(v('cellulare')||'').replace(/\s+/g,'').replace(/^\+39/,'39').replace(/^0039/,'39').replace(/^3/,'393')}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:#25d36620;color:#25d366;border:1px solid #25d36640;padding:10px 16px;border-radius:9px;text-decoration:none;font-size:14px;font-weight:700">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="#25d366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.126 1.533 5.857L.057 23.882a.5.5 0 0 0 .611.611l6.056-1.474A11.938 11.938 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.891 0-3.667-.523-5.183-1.432l-.371-.22-3.844.935.969-3.76-.242-.389A9.955 9.955 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
-          WhatsApp
-        </a>`:''}
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn-secondary" onclick="closeModal()">Annulla</button>
-        <button class="btn-primary" onclick="saveContact()" id="save-btn">💾 ${editingId?'Aggiorna':'Aggiungi'}</button>
-      </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
+      <button class="btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn-primary" onclick="saveContact()" id="save-btn">💾 ${editingId?'Aggiorna':'Aggiungi'}</button>
     </div>`;
   renderTagsInForm();
   populateProvSelect('form-prov',contact?.provincia||'BA');
@@ -1422,6 +1436,118 @@ async function initApp(cloud){
     document.getElementById('setup-screen').style.display='flex';
   }
 })();
+// ══════════════════════════════════════════════════════════════
+// PIPELINE VENDITE
+// ══════════════════════════════════════════════════════════════
+const PIPELINE_STAGES = [
+  { id:'prospect',   label:'🎯 Prospect',    color:'#3b82f6' },
+  { id:'contattato', label:'📞 Contattato',   color:'#f59e0b' },
+  { id:'offerta',    label:'📋 Offerta',      color:'#a855f7' },
+  { id:'trattativa', label:'🤝 Trattativa',   color:'#06b6d4' },
+  { id:'cliente',    label:'✅ Cliente',      color:'#22c55e' },
+  { id:'inattivo',   label:'😴 Inattivo',     color:'#94a3b8' },
+];
+
+// Sposta contatto in nuovo stage
+async function moveToPipelineStage(contactId, newStage){
+  const c = contacts.find(x=>x.id===contactId);
+  if(!c) return;
+  // Rimuovi tutti gli stage precedenti dai tag
+  const stageIds = PIPELINE_STAGES.map(s=>s.id);
+  c.tags = (c.tags||[]).filter(t=>!stageIds.includes(t));
+  if(newStage !== 'none') c.tags.push(newStage);
+  await dbUpsert(c);
+  renderPipeline();
+  renderStats();
+  updateHeader();
+}
+
+function getPipelineStage(c){
+  const stageIds = PIPELINE_STAGES.map(s=>s.id);
+  return (c.tags||[]).find(t=>stageIds.includes(t)) || 'none';
+}
+
+function renderPipeline(){
+  const prov = document.getElementById('pipeline-prov')?.value || '';
+  // Popola select province
+  const sel = document.getElementById('pipeline-prov');
+  const cur = sel.value;
+  const provs = [...new Set(contacts.map(c=>c.provincia))].sort((a,b)=>(PROVINCE[a]?.n||a).localeCompare(PROVINCE[b]?.n||b));
+  sel.innerHTML = '<option value="">Tutte le province</option>' + provs.map(p=>`<option value="${p}" ${p===cur?'selected':''}>${PROVINCE[p]?.n||p} (${p})</option>`).join('');
+
+  const filtered = prov ? contacts.filter(c=>c.provincia===prov) : contacts;
+
+  // Stats totali pipeline
+  const totPipeline = filtered.filter(c=>getPipelineStage(c)!=='none').length;
+  const totClienti  = filtered.filter(c=>(c.tags||[]).includes('cliente')).length;
+  document.getElementById('pipeline-stats').textContent = `${totPipeline} in pipeline · ${totClienti} clienti`;
+
+  const board = document.getElementById('kanban-board');
+  board.innerHTML = PIPELINE_STAGES.map(stage=>{
+    const cards = filtered.filter(c=>getPipelineStage(c)===stage.id);
+    return `
+      <div class="kanban-col" id="col-${stage.id}"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="onKanbanDrop(event,'${stage.id}')">
+        <div class="kanban-col-title" style="color:${stage.color}">
+          <span>${stage.label}</span>
+          <span style="background:${stage.color}22;color:${stage.color};border-radius:20px;padding:1px 8px;font-size:11px">${cards.length}</span>
+        </div>
+        ${cards.map(c=>kanbanCard(c, stage.color)).join('')}
+      </div>`;
+  }).join('');
+
+  // Colonna "Senza stage" per contatti non classificati
+  const senzaStage = filtered.filter(c=>getPipelineStage(c)==='none');
+  if(senzaStage.length){
+    board.innerHTML += `
+      <div class="kanban-col" id="col-none" style="opacity:.7"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="onKanbanDrop(event,'none')">
+        <div class="kanban-col-title" style="color:var(--muted)">
+          <span>⬜ Non classificati</span>
+          <span style="background:var(--surface);color:var(--muted);border-radius:20px;padding:1px 8px;font-size:11px">${senzaStage.length}</span>
+        </div>
+        ${senzaStage.map(c=>kanbanCard(c,'#64748b')).join('')}
+      </div>`;
+  }
+}
+
+function kanbanCard(c, color){
+  const tel = c.telefono || c.cellulare || '';
+  const waNum = (c.cellulare||'').replace(/\s+/g,'').replace(/^\+39/,'39').replace(/^0039/,'39').replace(/^3/,'393');
+  return `<div class="kanban-card" draggable="true"
+    ondragstart="onKanbanDragStart(event,${c.id})"
+    ondragend="document.querySelectorAll('.kanban-col').forEach(col=>col.classList.remove('drag-over'))">
+    <div style="font-weight:700;font-size:13px;margin-bottom:3px">${esc(c.nome)}</div>
+    ${c.azienda?`<div style="font-size:11px;color:var(--muted);margin-bottom:4px">${esc(c.azienda)}</div>`:''}
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${c.comune||PROVINCE[c.provincia]?.n||c.provincia}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button onclick="editContact(${c.id})" style="font-size:10px;padding:3px 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text)">✏️</button>
+      ${tel?`<a href="tel:${tel}" style="font-size:10px;padding:3px 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;text-decoration:none;color:var(--text)">📞</a>`:''}
+      ${c.cellulare?`<a href="https://wa.me/${waNum}" target="_blank" style="font-size:10px;padding:3px 8px;background:#25d36620;border:1px solid #25d36640;border-radius:6px;text-decoration:none;color:#25d366;font-weight:700">WA</a>`:''}
+      <select onchange="moveToPipelineStage(${c.id},this.value)" style="font-size:10px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer">
+        ${PIPELINE_STAGES.map(s=>`<option value="${s.id}" ${getPipelineStage(c)===s.id?'selected':''}>${s.label}</option>`).join('')}
+      </select>
+    </div>
+  </div>`;
+}
+
+let dragContactId = null;
+function onKanbanDragStart(event, contactId){
+  dragContactId = contactId;
+  event.dataTransfer.effectAllowed = 'move';
+  setTimeout(()=>event.target.classList.add('dragging'),0);
+}
+function onKanbanDrop(event, newStage){
+  event.preventDefault();
+  document.querySelectorAll('.kanban-col').forEach(col=>col.classList.remove('drag-over'));
+  if(dragContactId) moveToPipelineStage(dragContactId, newStage);
+  dragContactId = null;
+}
+
 </script>
 </body>
 </html>
