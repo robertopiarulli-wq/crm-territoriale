@@ -161,6 +161,15 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
 .archivio-card:hover{opacity:1;border-color:rgba(239,68,68,.6)}
 .tab-btn.archivio-tab{color:rgba(239,68,68,.6)}
 .tab-btn.archivio-tab.active{color:var(--danger);border-bottom-color:var(--danger)}
+
+.tipo-group{background:var(--surface);border-radius:10px;padding:14px;margin-bottom:14px}
+.tipo-group-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.tipo-pill{display:inline-flex;align-items:center;gap:6px;border-radius:20px;padding:4px 10px;font-size:12px;margin:3px;border:1px solid transparent}
+.tipo-pill .remove-tipo{cursor:pointer;opacity:.6;font-size:11px;line-height:1}
+.tipo-pill .remove-tipo:hover{opacity:1}
+.tipo-add-row{display:flex;gap:8px;margin-top:10px;align-items:center}
+.tipo-add-row input{flex:1;font-size:12px;padding:7px 10px}
+.tipo-add-row select{width:auto;font-size:12px;padding:7px 10px}
 </style>
 </head>
 <body>
@@ -403,18 +412,13 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
     <div class="panel" id="panel-attivita">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
         <div style="font-weight:700;font-size:16px">📝 Log Attività & Visite</div>
-        <button onclick="openNewAttivita()" class="btn-primary" style="font-size:13px">➕ Nuova attività</button>
+        <div style="display:flex;gap:8px">
+          <button onclick="openGestisciTipi()" class="btn-secondary" style="font-size:12px">⚙ Tipi</button>
+          <button onclick="openNewAttivita()" class="btn-primary" style="font-size:13px">➕ Nuova attività</button>
+        </div>
       </div>
       <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-        <select id="att-filter-tipo" onchange="renderAttivita()" style="width:auto;font-size:13px">
-          <option value="">Tutti i tipi</option>
-          <option value="appuntamento">📅 Appuntamento</option>
-          <option value="visita">🚗 Da visitare</option>
-          <option value="chiamata">📞 Chiamata</option>
-          <option value="email">📧 Email</option>
-          <option value="offerta">📋 Offerta inviata</option>
-          <option value="altro">📌 Altro</option>
-        </select>
+        <select id="att-filter-tipo" onchange="renderAttivita()" style="width:auto;font-size:13px"><option value="">Tutti i tipi</option></select>
         <select id="att-filter-contatto" onchange="renderAttivita()" style="width:auto;font-size:13px">
           <option value="">Tutti i contatti</option>
         </select>
@@ -1818,14 +1822,44 @@ function onKanbanDrop(event, newStage){
 // ══════════════════════════════════════════════════════════════
 let attivita = [];
 const ATT_KEY = 'crm_attivita_v1';
-const ATT_TIPOS = {
-  'appuntamento': {label:'📅 Appuntamento', color:'#f97316'},
-  'visita':       {label:'🚗 Da visitare',  color:'#22c55e'},
-  'chiamata':     {label:'📞 Chiamata',     color:'#3b82f6'},
-  'email':        {label:'📧 Email',        color:'#f59e0b'},
-  'offerta':      {label:'📋 Offerta inviata', color:'#a855f7'},
-  'altro':        {label:'📌 Altro',        color:'#94a3b8'},
-};
+// ── Tipi attività: fissi + custom salvati in localStorage ──
+const TIPI_KEY = 'crm_tipi_attivita_v1';
+// Tipi fissi base (non eliminabili)
+const TIPI_FISSI_FUTURO  = [
+  {key:'appuntamento', label:'📅 Appuntamento', color:'#f97316'},
+  {key:'visita',       label:'🚗 Da visitare',  color:'#22c55e'},
+];
+const TIPI_FISSI_PASSATO = [
+  {key:'chiamata', label:'📞 Chiamata',          color:'#3b82f6'},
+  {key:'email',    label:'📧 Email',             color:'#f59e0b'},
+  {key:'offerta',  label:'📋 Offerta inviata',   color:'#a855f7'},
+];
+// Palette colori per nuovi tipi custom
+const CUSTOM_COLORS = ['#06b6d4','#8b5cf6','#ec4899','#14b8a6','#f43f5e','#64748b','#a78bfa','#34d399'];
+
+function loadTipiCustom(){
+  try{ return JSON.parse(localStorage.getItem(TIPI_KEY)||'{"futuro":[],"passato":[]}'); }
+  catch(e){ return {futuro:[],passato:[]}; }
+}
+function saveTipiCustom(d){ localStorage.setItem(TIPI_KEY, JSON.stringify(d)); }
+
+function getTipiAll(){
+  const custom = loadTipiCustom();
+  const futuro  = [...TIPI_FISSI_FUTURO,  ...custom.futuro];
+  const passato = [...TIPI_FISSI_PASSATO, ...custom.passato];
+  // Costruisce oggetto ATT_TIPOS compatibile con il resto del codice
+  const obj = {};
+  futuro.forEach(t =>{ obj[t.key]={label:t.label, color:t.color, gruppo:'futuro'}; });
+  passato.forEach(t=>{ obj[t.key]={label:t.label, color:t.color, gruppo:'passato'}; });
+  return obj;
+}
+// Alias usato ovunque nel codice
+let ATT_TIPOS = getTipiAll();
+function refreshATT_TIPOS(){ ATT_TIPOS = getTipiAll(); }
+
+// Determina se la data va in prossimoContatto (futuro) o ultimoContatto (passato)
+function isTipoFuturo(tipo){ return ATT_TIPOS[tipo]?.gruppo==='futuro'; }
+
 
 async function loadAttivita(){
   if(useCloud){
@@ -1867,6 +1901,18 @@ async function deleteAttivitaRecord(id){
 function renderAttivita(){
   // Evita crash se il panel non è ancora nel DOM
   if(!document.getElementById('att-filter-contatto')) return;
+  // Popola filtro tipo dinamicamente
+  refreshATT_TIPOS();
+  const filterTipo = document.getElementById('att-filter-tipo');
+  if(filterTipo){
+    const curTipo = filterTipo.value;
+    const custom = loadTipiCustom();
+    const futuro  = [...TIPI_FISSI_FUTURO,  ...custom.futuro];
+    const passato = [...TIPI_FISSI_PASSATO, ...custom.passato];
+    filterTipo.innerHTML = '<option value="">Tutti i tipi</option>' +
+      '<optgroup label="📅 Futuro">' + futuro.map(t=>`<option value="${t.key}" ${t.key===curTipo?'selected':''}>${t.label}</option>`).join('') + '</optgroup>' +
+      '<optgroup label="✅ Passato">' + passato.map(t=>`<option value="${t.key}" ${t.key===curTipo?'selected':''}>${t.label}</option>`).join('') + '</optgroup>';
+  }
   // Popola filtro contatti
   const selC = document.getElementById('att-filter-contatto');
   const curC = selC.value;
@@ -1951,7 +1997,16 @@ function openNewAttivita(preContactId){
       <div>
         <label>Tipo attività *</label>
         <select id="att-tipo" style="width:100%" onchange="toggleCalBtn()">
-          ${Object.entries(ATT_TIPOS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}
+          ${(()=>{
+            const custom=loadTipiCustom();
+            const futuro=[...TIPI_FISSI_FUTURO,...custom.futuro];
+            const passato=[...TIPI_FISSI_PASSATO,...custom.passato];
+            return '<optgroup label="📅 Futuro (→ Prossimo contatto)">' +
+              futuro.map(t=>`<option value="${t.key}">${t.label}</option>`).join('') +
+              '</optgroup><optgroup label="✅ Passato (→ Ultimo contatto)">' +
+              passato.map(t=>`<option value="${t.key}">${t.label}</option>`).join('') +
+              '</optgroup>';
+          })()}
         </select>
       </div>
       <div>
@@ -1979,12 +2034,20 @@ function openNewAttivita(preContactId){
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:18px;justify-content:flex-end">
+      <div class="span-2" style="display:flex;align-items:center;gap:10px;padding-top:4px">
+        <input type="checkbox" id="att-reminder" style="width:auto;accent-color:var(--accent)">
+        <label for="att-reminder" style="margin:0;text-transform:none;font-size:13px;letter-spacing:0;cursor:pointer;color:var(--text)">🔔 Attiva reminder per questo contatto</label>
+      </div>
       <button onclick="closeModal()" class="btn-secondary">Annulla</button>
       <button onclick="salvaAttivita()" class="btn-primary">💾 Salva attività</button>
     </div>`;
   document.getElementById('modal-overlay').classList.add('open');
+  // Pre-spunta reminder se il contatto ce l'ha già attivo
+  if(preContactId){
+    const pc=contacts.find(x=>String(x.id)===String(preContactId));
+    if(pc&&pc.reminderAttivo) document.getElementById('att-reminder').checked=true;
+  }
 }
-
 async function salvaAttivita(){
   const contId = document.getElementById('att-contatto').value;
   const data   = document.getElementById('att-data').value;
@@ -2001,10 +2064,21 @@ async function salvaAttivita(){
   };
   await saveAttivitaRecord(a);
 
-  // Auto-aggiorna ultimo contatto sul contatto
   const c = contacts.find(x=>String(x.id)===String(contId));
-  if(c && (!c.ultimoContatto || data > c.ultimoContatto)){
-    c.ultimoContatto = data;
+  if(c){
+    const oggi = todayStr();
+    const reminderFlag = document.getElementById('att-reminder')?.checked;
+    // "da visitare" e "appuntamento" → la data del log va in prossimoContatto,
+    // ultimoContatto = oggi (data in cui si è pianificato)
+    if(isTipoFuturo(tipo)){
+      c.prossimoContatto = data;
+      if(!c.ultimoContatto || oggi > c.ultimoContatto) c.ultimoContatto = oggi;
+      if(reminderFlag !== undefined) c.reminderAttivo = reminderFlag;
+    } else {
+      // Tutti gli altri tipi → data va in ultimoContatto (attività già svolta)
+      if(!c.ultimoContatto || data > c.ultimoContatto) c.ultimoContatto = data;
+      if(reminderFlag !== undefined) c.reminderAttivo = reminderFlag;
+    }
     await dbUpsert(c);
   }
 
@@ -2311,7 +2385,7 @@ function toggleCalBtn(){
   const tipo = document.getElementById('att-tipo')?.value;
   const btn  = document.getElementById('att-cal-btn');
   if(!btn) return;
-  btn.style.display = (tipo==='appuntamento'||tipo==='visita') ? 'inline-flex' : 'none';
+  btn.style.display = isTipoFuturo(tipo) ? 'inline-flex' : 'none';
 }
 function openAttivitaCal(){
   const contId = document.getElementById('att-contatto')?.value;
@@ -2337,6 +2411,84 @@ async function disattivaReminder(id){
   updateHeader();
   renderReminders();
   showToast('🔕 Reminder disattivato','warn');
+}
+
+// ══════════════════════════════════════════════════════════════
+// GESTIONE TIPI ATTIVITÀ CUSTOM
+// ══════════════════════════════════════════════════════════════
+function openGestisciTipi(){
+  refreshATT_TIPOS();
+  const custom = loadTipiCustom();
+  const renderPills = (lista, gruppo) => lista.map((t,i)=>
+    `<span class="tipo-pill" style="background:${t.color}22;color:${t.color};border-color:${t.color}44">
+      ${t.label}
+      <span class="remove-tipo" onclick="removeTipoCustom('${gruppo}',${i})" title="Rimuovi">✕</span>
+    </span>`
+  ).join('');
+
+  document.getElementById('modal-title').textContent = '⚙ Gestisci tipi attività';
+  document.getElementById('modal-content').innerHTML = `
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+      Personalizza le voci del Log attività.<br>
+      <strong style="color:var(--accent)">Futuro</strong> → la data va in <em>Prossimo contatto</em> &nbsp;|&nbsp;
+      <strong style="color:var(--info)">Passato</strong> → la data va in <em>Ultimo contatto</em>
+    </div>
+
+    <div class="tipo-group">
+      <div class="tipo-group-title" style="color:var(--accent)">📅 Futuro — Prossimo contatto</div>
+      <div id="pills-futuro">
+        ${TIPI_FISSI_FUTURO.map(t=>`<span class="tipo-pill" style="background:${t.color}22;color:${t.color};border-color:${t.color}44">${t.label} <span style="font-size:10px;opacity:.4">fisso</span></span>`).join('')}
+        ${renderPills(custom.futuro,'futuro')}
+      </div>
+      <div class="tipo-add-row">
+        <input id="new-tipo-futuro-label" placeholder="es. 🏢 Demo prodotto" maxlength="30">
+        <button onclick="addTipoCustom('futuro')" class="btn-primary" style="white-space:nowrap;padding:7px 14px;font-size:12px">+ Aggiungi</button>
+      </div>
+    </div>
+
+    <div class="tipo-group">
+      <div class="tipo-group-title" style="color:var(--info)">✅ Passato — Ultimo contatto</div>
+      <div id="pills-passato">
+        ${TIPI_FISSI_PASSATO.map(t=>`<span class="tipo-pill" style="background:${t.color}22;color:${t.color};border-color:${t.color}44">${t.label} <span style="font-size:10px;opacity:.4">fisso</span></span>`).join('')}
+        ${renderPills(custom.passato,'passato')}
+      </div>
+      <div class="tipo-add-row">
+        <input id="new-tipo-passato-label" placeholder="es. 📱 WhatsApp" maxlength="30">
+        <button onclick="addTipoCustom('passato')" class="btn-primary" style="white-space:nowrap;padding:7px 14px;font-size:12px">+ Aggiungi</button>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;margin-top:8px">
+      <button onclick="closeModal()" class="btn-secondary">Chiudi</button>
+    </div>`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function addTipoCustom(gruppo){
+  const inputId = gruppo==='futuro' ? 'new-tipo-futuro-label' : 'new-tipo-passato-label';
+  const label = document.getElementById(inputId)?.value.trim();
+  if(!label){ showToast('Inserisci un nome per il tipo','warn'); return; }
+  const custom = loadTipiCustom();
+  // Controlla duplicati
+  const allKeys = [...TIPI_FISSI_FUTURO,...TIPI_FISSI_PASSATO,...custom.futuro,...custom.passato].map(t=>t.key);
+  const key = label.toLowerCase().replace(/[^a-z0-9]/g,'_').substring(0,20);
+  if(allKeys.includes(key)){ showToast('Tipo già esistente','warn'); return; }
+  const color = CUSTOM_COLORS[custom[gruppo].length % CUSTOM_COLORS.length];
+  custom[gruppo].push({key, label, color});
+  saveTipiCustom(custom);
+  refreshATT_TIPOS();
+  document.getElementById(inputId).value='';
+  openGestisciTipi(); // re-render modale
+  showToast(`✅ Tipo "${label}" aggiunto!`,'success');
+}
+
+function removeTipoCustom(gruppo, idx){
+  const custom = loadTipiCustom();
+  const removed = custom[gruppo].splice(idx,1)[0];
+  saveTipiCustom(custom);
+  refreshATT_TIPOS();
+  openGestisciTipi();
+  showToast(`🗑 Tipo "${removed?.label}" rimosso`,'warn');
 }
 
 </script>
