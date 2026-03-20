@@ -872,7 +872,7 @@ function renderContacts(){
           <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin-bottom:4px">
             ${c.indirizzo?`<span>📍 ${esc(c.indirizzo)}, ${PROVINCE[c.provincia]?.n||c.provincia}</span>`:`<span>📍 ${c.comune||PROVINCE[c.provincia]?.n||c.provincia} (${c.provincia})</span>`}
             ${c.telefono?`<span>📞 ${esc(c.telefono)}</span>`:''}
-            ${c.email?`<a href="mailto:${esc(c.email)}" style="color:var(--muted);text-decoration:none" title="Apri in Outlook">✉ ${esc(c.email)}</a>`:''}
+            ${c.email?`<a href="https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(c.email)}" target="_blank" style="color:var(--muted);text-decoration:none" title="Apri in Outlook Web">✉ ${esc(c.email)}</a>`:''}
           </div>
           ${c.note?`<div style="font-size:12px;background:var(--surface);border-radius:6px;padding:6px 10px;margin-top:4px">${esc(c.note)}</div>`:''}
           <div style="margin-top:6px;display:flex;gap:14px;font-size:11px;color:var(--muted)" class="mono">
@@ -888,7 +888,7 @@ function renderContacts(){
           </div>
           <div class="contact-quick-actions">
             ${tel?`<a href="tel:${tel}" class="quick-btn call" style="text-decoration:none;display:inline-block">📞 Chiama</a>`:''}
-            ${c.email?`<a href="mailto:${c.email}?subject=Contatto CRM" class="quick-btn" style="text-decoration:none;display:inline-block;background:rgba(234,179,8,.1);border-color:rgba(234,179,8,.3);color:var(--warn)">✉ Email</a>`:''}
+            ${c.email?`<a href="https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(c.email)}&subject=Contatto%20CRM" class="quick-btn" style="text-decoration:none;display:inline-block;background:rgba(234,179,8,.1);border-color:rgba(234,179,8,.3);color:var(--warn)">✉ Email</a>`:''}
             ${c.cellulare?`<a href="https://wa.me/${waNum}" target="_blank" class="quick-btn wa" style="text-decoration:none;display:inline-block">WA</a>`:''}
             <button class="quick-btn" onclick="goToMap(${c.id})" style="font-size:11px">🗺</button>
             <button class="quick-btn" onclick="startRoadMapFrom(${c.id})" style="font-size:11px">🛣</button>
@@ -917,7 +917,7 @@ function openModal(contact){
       <div class="span-2"><label>Email</label>
         <div style="display:flex;gap:8px;align-items:center">
           <input id="f-email" type="email" value="${esc(v('email'))}" placeholder="email@dominio.it" style="flex:1">
-          ${contact?.email?`<a href="mailto:${esc(contact.email)}" style="background:rgba(234,179,8,.12);color:var(--warn);border:1px solid rgba(234,179,8,.3);padding:9px 12px;border-radius:8px;text-decoration:none;font-size:12px;white-space:nowrap;font-weight:600" title="Apri in Outlook">📧 Apri</a>`:''}
+          ${contact?.email?`<a href="https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(contact.email)}" style="background:rgba(234,179,8,.12);color:var(--warn);border:1px solid rgba(234,179,8,.3);padding:9px 12px;border-radius:8px;text-decoration:none;font-size:12px;white-space:nowrap;font-weight:600" title="Apri in Outlook">📧 Apri</a>`:''}
         </div>
       </div>
       <div class="span-2"><label>Indirizzo <span style="font-size:10px;color:var(--muted)">(geocodifica automatica)</span></label><input id="f-indirizzo" value="${esc(v('indirizzo'))}" placeholder="Via/Corso + numero"></div>
@@ -2598,7 +2598,7 @@ function renderEmailGruppo(){
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:13px">${esc(c.nome)}${c.azienda?` <span style="font-weight:400;color:var(--muted);font-size:12px">— ${esc(c.azienda)}</span>`:''}</div>
         <div style="font-size:12px;color:var(--muted);margin-top:2px">
-          <a href="mailto:${esc(c.email)}" onclick="event.stopPropagation()" style="color:var(--warn);text-decoration:none">✉ ${esc(c.email)}</a>
+          <a href="https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(c.email)}" target="_blank" onclick="event.stopPropagation()" style="color:var(--warn);text-decoration:none">✉ ${esc(c.email)}</a>
           &nbsp;·&nbsp; ${c.comune||PROVINCE[c.provincia]?.n||c.provincia} (${c.provincia})
         </div>
       </div>
@@ -2649,7 +2649,8 @@ function apriOutlookGruppo(){
     .filter(Boolean)
     .join(';');
   const oggetto = encodeURIComponent(document.getElementById('email-oggetto')?.value||'');
-  window.location.href = `mailto:${emails}?subject=${oggetto}`;
+  const outlookUrl = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(emails)}&subject=${oggetto}`;
+  window.open(outlookUrl, '_blank');
 }
 
 // Link email dinamico nel form Log
@@ -2660,7 +2661,7 @@ function aggiornaEmailLog(){
   if(!wrap||!link) return;
   const c = contacts.find(x=>String(x.id)===String(contId));
   if(c&&c.email){
-    link.href = `mailto:${c.email}`;
+    link.href = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(c.email)}`;
     link.textContent = `📧 Invia email a ${c.nome} (${c.email})`;
     wrap.style.display = 'block';
   } else {
