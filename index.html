@@ -888,7 +888,7 @@ function renderContacts(){
           </div>
           <div class="contact-quick-actions">
             ${tel?`<a href="tel:${tel}" class="quick-btn call" style="text-decoration:none;display:inline-block">📞 Chiama</a>`:''}
-            ${c.email?`<a href="https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(c.email)}&subject=Contatto%20CRM" class="quick-btn" style="text-decoration:none;display:inline-block;background:rgba(234,179,8,.1);border-color:rgba(234,179,8,.3);color:var(--warn)">✉ Email</a>`:''}
+            ${c.email?`<a href="https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(c.email)}&subject=Contatto%20CRM" target="_blank" class="quick-btn" style="text-decoration:none;display:inline-block;background:rgba(234,179,8,.1);border-color:rgba(234,179,8,.3);color:var(--warn)">✉ Email</a>`:''}
             ${c.cellulare?`<a href="https://wa.me/${waNum}" target="_blank" class="quick-btn wa" style="text-decoration:none;display:inline-block">WA</a>`:''}
             <button class="quick-btn" onclick="goToMap(${c.id})" style="font-size:11px">🗺</button>
             <button class="quick-btn" onclick="startRoadMapFrom(${c.id})" style="font-size:11px">🛣</button>
@@ -917,7 +917,7 @@ function openModal(contact){
       <div class="span-2"><label>Email</label>
         <div style="display:flex;gap:8px;align-items:center">
           <input id="f-email" type="email" value="${esc(v('email'))}" placeholder="email@dominio.it" style="flex:1">
-          ${contact?.email?`<a href="https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(contact.email)}" style="background:rgba(234,179,8,.12);color:var(--warn);border:1px solid rgba(234,179,8,.3);padding:9px 12px;border-radius:8px;text-decoration:none;font-size:12px;white-space:nowrap;font-weight:600" title="Apri in Outlook">📧 Apri</a>`:''}
+          ${contact?.email?`<a href="https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(contact.email)}" target="_blank" style="background:rgba(234,179,8,.12);color:var(--warn);border:1px solid rgba(234,179,8,.3);padding:9px 12px;border-radius:8px;text-decoration:none;font-size:12px;white-space:nowrap;font-weight:600" title="Apri in Outlook">📧 Apri</a>`:''}
         </div>
       </div>
       <div class="span-2"><label>Indirizzo <span style="font-size:10px;color:var(--muted)">(geocodifica automatica)</span></label><input id="f-indirizzo" value="${esc(v('indirizzo'))}" placeholder="Via/Corso + numero"></div>
@@ -2051,8 +2051,8 @@ function openNewAttivita(preContactId){
           <option value="">-- Seleziona contatto --</option>
           ${contacts.sort((a,b)=>a.nome.localeCompare(b.nome)).map(c=>`<option value="${c.id}" ${String(c.id)===String(preContactId)?'selected':''}>${esc(c.nome)}${c.azienda?' — '+esc(c.azienda):''}</option>`).join('')}
         </select>
-        <div id="att-email-link" style="margin-top:6px;display:none">
-          <a id="att-email-a" href="#" style="font-size:12px;color:var(--warn);text-decoration:none">📧 Invia email a questo contatto</a>
+        <div id="att-email-link" style="margin-top:8px;display:none">
+          <a id="att-email-a" href="#" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:rgba(234,179,8,.12);color:var(--warn);border:1px solid rgba(234,179,8,.35);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;text-decoration:none">📧 <span id="att-email-label">Invia email</span></a>
         </div>
       </div>
       <div>
@@ -2649,7 +2649,7 @@ function apriOutlookGruppo(){
     .filter(Boolean)
     .join(';');
   const oggetto = encodeURIComponent(document.getElementById('email-oggetto')?.value||'');
-  const outlookUrl = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(emails)}&subject=${oggetto}`;
+  const outlookUrl = `https://outlook.office.com/mail/deeplink/compose?bcc=${encodeURIComponent(emails)}&subject=${oggetto}`;
   window.open(outlookUrl, '_blank');
 }
 
@@ -2662,7 +2662,8 @@ function aggiornaEmailLog(){
   const c = contacts.find(x=>String(x.id)===String(contId));
   if(c&&c.email){
     link.href = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(c.email)}`;
-    link.textContent = `📧 Invia email a ${c.nome} (${c.email})`;
+    const lbl = document.getElementById('att-email-label');
+    if(lbl) lbl.textContent = `Invia email a ${c.nome} (${c.email})`;
     wrap.style.display = 'block';
   } else {
     wrap.style.display = 'none';
