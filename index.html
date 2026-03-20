@@ -83,6 +83,7 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
 .log-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;border-left:3px solid var(--accent)}
 .log-item.visita{border-left-color:#22c55e}
 .log-item.appuntamento{border-left-color:#f97316}
+.log-item.altro{border-left-color:#94a3b8}
 .log-item.chiamata{border-left-color:#3b82f6}
 .log-item.email{border-left-color:#f59e0b}
 .log-item.offerta{border-left-color:#a855f7}
@@ -916,7 +917,7 @@ function openModal(contact){
   if(contact?.id){
     const cAtt=attivita.filter(a=>String(a.contatto_id)===String(contact.id)).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
     const tlHtml=cAtt.length?cAtt.map(a=>{
-      const t=ATT_TIPOS[a.tipo]||ATT_TIPOS['altro'];
+      const t=ATT_TIPOS[a.tipo]||ATT_TIPOS['_fallback'];
       return `<div class="tl-item">
         <div class="tl-dot" style="background:${t.color}"></div>
         <div class="tl-body">
@@ -1851,6 +1852,8 @@ function getTipiAll(){
   const obj = {};
   futuro.forEach(t =>{ obj[t.key]={label:t.label, color:t.color, gruppo:'futuro'}; });
   passato.forEach(t=>{ obj[t.key]={label:t.label, color:t.color, gruppo:'passato'}; });
+  // Fallback generico per tipi legacy (es. 'altro' rimosso)
+  obj['_fallback']={label:'📌 Altro', color:'#94a3b8', gruppo:'passato'};
   return obj;
 }
 // Alias usato ovunque nel codice
@@ -1858,7 +1861,7 @@ let ATT_TIPOS = getTipiAll();
 function refreshATT_TIPOS(){ ATT_TIPOS = getTipiAll(); }
 
 // Determina se la data va in prossimoContatto (futuro) o ultimoContatto (passato)
-function isTipoFuturo(tipo){ return ATT_TIPOS[tipo]?.gruppo==='futuro'; }
+function isTipoFuturo(tipo){ return (ATT_TIPOS[tipo]||ATT_TIPOS['_fallback'])?.gruppo==='futuro'; }
 
 
 async function loadAttivita(){
@@ -1959,7 +1962,7 @@ function renderAttivita(){
 
   el.innerHTML = list.map(a=>{
     const c = contacts.find(x=>String(x.id)===String(a.contatto_id));
-    const t = ATT_TIPOS[a.tipo]||ATT_TIPOS['altro'];
+    const t = ATT_TIPOS[a.tipo]||ATT_TIPOS['_fallback'];
     return `<div class="log-item ${a.tipo}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
         <div style="flex:1">
@@ -2126,7 +2129,7 @@ function renderAgenda(){
   };
   const attCard=a=>{
     const c=contacts.find(x=>String(x.id)===String(a.contatto_id));
-    const t=ATT_TIPOS[a.tipo]||ATT_TIPOS['altro'];
+    const t=ATT_TIPOS[a.tipo]||ATT_TIPOS['_fallback'];
     return `<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${t.color};border-radius:10px;padding:11px 14px;margin-bottom:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span style="background:${t.color}22;color:${t.color};border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700;white-space:nowrap">${t.label}</span>
       <span style="font-weight:600;font-size:13px">${c?esc(c.nome):'Contatto eliminato'}</span>
@@ -2291,7 +2294,7 @@ function generateWeeklyReport(){
 ${attSettimana.length?`<table style="margin-top:12px"><thead><tr><th>Data</th><th>Tipo</th><th>Contatto</th><th>Esito</th><th>Note</th></tr></thead><tbody>
 ${attSettimana.sort((a,b)=>b.data.localeCompare(a.data)).map(a=>{
   const c=contacts.find(x=>String(x.id)===String(a.contatto_id));
-  const t=ATT_TIPOS[a.tipo]||ATT_TIPOS['altro'];
+  const t=ATT_TIPOS[a.tipo]||ATT_TIPOS['_fallback'];
   return `<tr><td>${a.data}</td><td>${t.label}</td><td>${c?esc(c.nome):'—'}${c&&c.azienda?` <span style="color:#888">— ${esc(c.azienda)}</span>`:''}</td><td>${a.esito||'—'}</td><td>${a.note?esc(a.note.substring(0,60))+'...':'—'}</td></tr>`;
 }).join('')}
 </tbody></table>`:''  }
