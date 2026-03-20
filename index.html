@@ -154,6 +154,12 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
 .kb-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}
 .kb-row{display:flex;gap:8px;align-items:center}
 .kb-key{background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-family:'DM Mono',monospace;font-size:11px;color:var(--accent)}
+
+/* ARCHIVIO CANCELLATI */
+.archivio-card{background:var(--card);border:1px solid var(--border);border-left:3px solid rgba(239,68,68,.4);border-radius:12px;padding:14px;margin-bottom:8px;opacity:.7;transition:opacity .2s}
+.archivio-card:hover{opacity:1;border-color:rgba(239,68,68,.6)}
+.tab-btn.archivio-tab{color:rgba(239,68,68,.6)}
+.tab-btn.archivio-tab.active{color:var(--danger);border-bottom-color:var(--danger)}
 </style>
 </head>
 <body>
@@ -228,6 +234,7 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
     <button class="tab-btn" onclick="switchTab('attivita')" id="tab-attivita">📝 Attività</button>
     <button class="tab-btn" onclick="switchTab('agenda')" id="tab-agenda">📅 Agenda<span class='tab-count' id='tab-count-agenda' style='display:none'>0</span></button>
     <button class="tab-btn" onclick="switchTab('kpi')" id="tab-kpi">📈 KPI</button>
+    <button class="tab-btn archivio-tab" onclick="switchTab('archivio')" id="tab-archivio">🗑 Archivio<span class='tab-count' id='tab-count-archivio' style='display:none;background:rgba(239,68,68,.7)'>0</span></button>
   </div>
 
   <!-- CONTENT -->
@@ -425,6 +432,17 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
 
 
 
+    <!-- ARCHIVIO CANCELLATI -->
+    <div class="panel" id="panel-archivio">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-weight:800;font-size:18px">🗑 Archivio Cancellati</div>
+          <div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px">Contatti rimossi dal flusso commerciale — non appaiono in lista, reminder, agenda o KPI</div>
+        </div>
+      </div>
+      <div id="archivio-list"></div>
+    </div>
+
 <!-- MODAL -->
 <div id="modal-overlay" onclick="handleOverlayClick(event)">
   <div id="modal-box">
@@ -617,6 +635,7 @@ function switchTab(tab){
   if(tab==='attivita') loadAttivita().then(()=>renderAttivita());
   if(tab==='agenda') loadAttivita().then(()=>renderAgenda());
   if(tab==='kpi') loadAttivita().then(()=>renderKPI());
+  if(tab==='archivio') renderArchivio();
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -657,9 +676,13 @@ function populateProvSelect(id,selected){ const el=document.getElementById(id); 
 // ══════════════════════════════════════════════════════════════
 function updateHeader(){
   const today=todayStr();
-  const scaduti=contacts.filter(c=>c.reminderAttivo&&c.prossimoContatto&&c.prossimoContatto<today);
-  const presto=contacts.filter(c=>{ if(!c.reminderAttivo||!c.prossimoContatto) return false; const d=daysDiff(c.prossimoContatto); return d>=0&&d<=7; });
-  document.getElementById('header-count').textContent=contacts.length+' contatti';
+  const attivi=contacts.filter(c=>!(c.tags||[]).includes('cancellato'));
+  const scaduti=attivi.filter(c=>c.reminderAttivo&&c.prossimoContatto&&c.prossimoContatto<today);
+  const presto=attivi.filter(c=>{ if(!c.reminderAttivo||!c.prossimoContatto) return false; const d=daysDiff(c.prossimoContatto); return d>=0&&d<=7; });
+  const nCancellati=contacts.filter(c=>(c.tags||[]).includes('cancellato')).length;
+  document.getElementById('header-count').textContent=attivi.length+' contatti';
+  const archBadge=document.getElementById('tab-count-archivio');
+  if(archBadge){ if(nCancellati){ archBadge.style.display='inline-flex'; archBadge.textContent=nCancellati; } else archBadge.style.display='none'; }
   const bs=document.getElementById('badge-scaduti'),bp=document.getElementById('badge-presto');
   if(scaduti.length){ bs.style.display='inline-flex'; document.getElementById('count-scaduti').textContent=scaduti.length+' scaduti'; } else bs.style.display='none';
   if(presto.length){ bp.style.display='inline-flex'; document.getElementById('count-presto').textContent=presto.length+' in scadenza'; } else bp.style.display='none';
@@ -678,9 +701,10 @@ function setStatFilter(f){
 
 function renderStats(){
   const today=todayStr();
-  const clienti=contacts.filter(c=>c.tags&&c.tags.includes('cliente')).length;
-  const prospect=contacts.filter(c=>c.tags&&c.tags.includes('prospect')).length;
-  const scaduti=contacts.filter(c=>c.reminderAttivo&&c.prossimoContatto&&c.prossimoContatto<today).length;
+  const attivi=contacts.filter(c=>!(c.tags||[]).includes('cancellato'));
+  const clienti=attivi.filter(c=>c.tags&&c.tags.includes('cliente')).length;
+  const prospect=attivi.filter(c=>c.tags&&c.tags.includes('prospect')).length;
+  const scaduti=attivi.filter(c=>c.reminderAttivo&&c.prossimoContatto&&c.prossimoContatto<today).length;
   document.getElementById('stats-bar').innerHTML=`
     <div class="stat-item"><div class="stat-val">${contacts.length}</div><div class="stat-lbl">Totale</div></div>
     <div class="stat-item"><div class="stat-val" style="color:var(--success)">${clienti}</div><div class="stat-lbl">Clienti</div></div>
@@ -709,6 +733,7 @@ function renderContacts(){
   const today=todayStr();
   const today2=todayStr();
   let list=contacts.filter(c=>{
+    if((c.tags||[]).includes('cancellato')) return false; // sempre esclusi dalla lista principale
     if(q&&!c.nome.toLowerCase().includes(q)&&!(c.azienda||'').toLowerCase().includes(q)&&!c.provincia.toLowerCase().includes(q)&&!(c.comune||'').toLowerCase().includes(q)&&!(c.note||'').toLowerCase().includes(q)&&!(c.telefono||'').includes(q)&&!(c.cellulare||'').includes(q)) return false;
     if(fp&&c.provincia!==fp) return false;
     if(ft&&!(c.tags||[]).includes(ft)) return false;
@@ -723,7 +748,7 @@ function renderContacts(){
   });
   // Sorting
   const sortVal = document.getElementById('sort-contacts')?.value || 'nome';
-  const maiContattatiIds = new Set(contacts.filter(c=>!c.ultimoContatto&&!attivita.some(a=>String(a.contatto_id)===String(c.id))).map(c=>c.id));
+  const maiContattatiIds = new Set(contacts.filter(c=>!(c.tags||[]).includes('cancellato')&&!c.ultimoContatto&&!attivita.some(a=>String(a.contatto_id)===String(c.id))).map(c=>c.id));
   list.sort((a,b)=>{
     if(sortVal==='nome') return a.nome.localeCompare(b.nome);
     if(sortVal==='ultimo_asc'){
@@ -1906,52 +1931,48 @@ function renderAttivita(){
 
 function openNewAttivita(preContactId){
   const oggi = new Date().toISOString().split('T')[0];
-  document.getElementById('modal-overlay').innerHTML = `
-    <div onclick="event.stopPropagation()" style="background:var(--card);border-radius:16px;padding:26px;max-width:500px;width:92%;max-height:90vh;overflow-y:auto">
-      <div style="font-weight:800;font-size:18px;margin-bottom:18px">➕ Nuova Attività</div>
-      <div class="grid-2" style="gap:14px">
-        <div class="span-2">
-          <label>Contatto *</label>
-          <select id="att-contatto" style="width:100%">
-            <option value="">-- Seleziona contatto --</option>
-            ${contacts.sort((a,b)=>a.nome.localeCompare(b.nome)).map(c=>`<option value="${c.id}" ${String(c.id)===String(preContactId)?'selected':''}>${esc(c.nome)}${c.azienda?' — '+esc(c.azienda):''}</option>`).join('')}
-          </select>
-        </div>
-        <div>
-          <label>Tipo attività *</label>
-          <select id="att-tipo" style="width:100%">
-            ${Object.entries(ATT_TIPOS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}
-          </select>
-        </div>
-        <div>
-          <label>Data *</label>
-          <input id="att-data" type="date" value="${oggi}">
-        </div>
-        <div class="span-2">
-          <label>Esito</label>
-          <select id="att-esito" style="width:100%">
-            <option value="">-- Nessun esito --</option>
-            <option value="✅ Positivo">✅ Positivo</option>
-            <option value="🔄 Da risentire">🔄 Da risentire</option>
-            <option value="📋 Offerta richiesta">📋 Offerta richiesta</option>
-            <option value="❌ Non interessato">❌ Non interessato</option>
-            <option value="📵 Non risponde">📵 Non risponde</option>
-          </select>
-        </div>
-        <div class="span-2">
-          <label>Note</label>
-          <textarea id="att-note" rows="3" placeholder="Descrizione, argomenti trattati, follow-up..."></textarea>
-        </div>
+  // USA la struttura modale esistente — NON sovrascrivere innerHTML di modal-overlay
+  document.getElementById('modal-title').textContent = '➕ Nuova Attività';
+  document.getElementById('modal-content').innerHTML = `
+    <div class="grid-2" style="gap:14px">
+      <div class="span-2">
+        <label>Contatto *</label>
+        <select id="att-contatto" style="width:100%">
+          <option value="">-- Seleziona contatto --</option>
+          ${contacts.sort((a,b)=>a.nome.localeCompare(b.nome)).map(c=>`<option value="${c.id}" ${String(c.id)===String(preContactId)?'selected':''}>${esc(c.nome)}${c.azienda?' — '+esc(c.azienda):''}</option>`).join('')}
+        </select>
       </div>
-      <div style="display:flex;gap:8px;margin-top:18px;justify-content:flex-end">
-        <button onclick="closeLegendModal()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 18px;border-radius:9px;cursor:pointer">Annulla</button>
-        <button onclick="salvaAttivita()" class="btn-primary">💾 Salva attività</button>
+      <div>
+        <label>Tipo attività *</label>
+        <select id="att-tipo" style="width:100%">
+          ${Object.entries(ATT_TIPOS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}
+        </select>
       </div>
+      <div>
+        <label>Data *</label>
+        <input id="att-data" type="date" value="${oggi}">
+      </div>
+      <div class="span-2">
+        <label>Esito</label>
+        <select id="att-esito" style="width:100%">
+          <option value="">-- Nessun esito --</option>
+          <option value="✅ Positivo">✅ Positivo</option>
+          <option value="🔄 Da risentire">🔄 Da risentire</option>
+          <option value="📋 Offerta richiesta">📋 Offerta richiesta</option>
+          <option value="❌ Non interessato">❌ Non interessato</option>
+          <option value="📵 Non risponde">📵 Non risponde</option>
+        </select>
+      </div>
+      <div class="span-2">
+        <label>Note</label>
+        <textarea id="att-note" rows="3" placeholder="Descrizione, argomenti trattati, follow-up..."></textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:18px;justify-content:flex-end">
+      <button onclick="closeModal()" class="btn-secondary">Annulla</button>
+      <button onclick="salvaAttivita()" class="btn-primary">💾 Salva attività</button>
     </div>`;
   document.getElementById('modal-overlay').classList.add('open');
-  document.getElementById('modal-overlay').onclick = e=>{
-    if(e.target===document.getElementById('modal-overlay')) closeLegendModal();
-  };
 }
 
 async function salvaAttivita(){
@@ -1977,7 +1998,7 @@ async function salvaAttivita(){
     await dbUpsert(c);
   }
 
-  closeLegendModal();
+  closeModal();
   showToast('✅ Attività salvata!','success');
   await loadAttivita();
   renderAttivita();
@@ -1995,9 +2016,9 @@ function renderAgenda(){
   if(dateEl) dateEl.textContent=days[d.getDay()]+' '+d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear();
   const in7=new Date(d); in7.setDate(in7.getDate()+7);
   const in7Str=in7.toISOString().split('T')[0];
-  const oggiList=contacts.filter(c=>c.reminderAttivo&&c.prossimoContatto===today);
-  const scadutiList=contacts.filter(c=>c.reminderAttivo&&c.prossimoContatto&&c.prossimoContatto<today).sort((a,b)=>a.prossimoContatto.localeCompare(b.prossimoContatto));
-  const prossimiList=contacts.filter(c=>c.reminderAttivo&&c.prossimoContatto>today&&c.prossimoContatto<=in7Str).sort((a,b)=>a.prossimoContatto.localeCompare(b.prossimoContatto));
+  const oggiList=contacts.filter(c=>!(c.tags||[]).includes('cancellato')&&c.reminderAttivo&&c.prossimoContatto===today);
+  const scadutiList=contacts.filter(c=>!(c.tags||[]).includes('cancellato')&&c.reminderAttivo&&c.prossimoContatto&&c.prossimoContatto<today).sort((a,b)=>a.prossimoContatto.localeCompare(b.prossimoContatto));
+  const prossimiList=contacts.filter(c=>!(c.tags||[]).includes('cancellato')&&c.reminderAttivo&&c.prossimoContatto>today&&c.prossimoContatto<=in7Str).sort((a,b)=>a.prossimoContatto.localeCompare(b.prossimoContatto));
   const attOggi=attivita.filter(a=>a.data===today);
   const el=document.getElementById('agenda-content');
   if(!el) return;
@@ -2046,10 +2067,10 @@ function renderKPI(){
   if(!el) return;
   const updEl=document.getElementById('kpi-updated');
   if(updEl) updEl.textContent='Aggiornato · '+new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
-  const totale=contacts.length;
-  const clienti=contacts.filter(c=>(c.tags||[]).includes('cliente')).length;
-  const prospect=contacts.filter(c=>(c.tags||[]).includes('prospect')).length;
-  const scaduti=contacts.filter(c=>c.reminderAttivo&&c.prossimoContatto&&c.prossimoContatto<today).length;
+  const totale=contacts.filter(c=>!(c.tags||[]).includes('cancellato')).length;
+  const clienti=contacts.filter(c=>!(c.tags||[]).includes('cancellato')&&(c.tags||[]).includes('cliente')).length;
+  const prospect=contacts.filter(c=>!(c.tags||[]).includes('cancellato')&&(c.tags||[]).includes('prospect')).length;
+  const scaduti=contacts.filter(c=>!(c.tags||[]).includes('cancellato')&&c.reminderAttivo&&c.prossimoContatto&&c.prossimoContatto<today).length;
   const convRate=totale?Math.round(clienti/totale*100):0;
   const now=new Date();
   const attMese=attivita.filter(a=>{const d=new Date(a.data);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}).length;
@@ -2058,12 +2079,12 @@ function renderKPI(){
   const attPerTipo=Object.entries(ATT_TIPOS).map(([k,v])=>({label:v.label,color:v.color,count:attivita.filter(a=>a.tipo===k).length})).sort((a,b)=>b.count-a.count);
   const maxAtt=Math.max(...attPerTipo.map(x=>x.count),1);
   // Top province
-  const byProv={};contacts.forEach(c=>{byProv[c.provincia]=(byProv[c.provincia]||0)+1;});
+  const byProv={};contacts.filter(c=>!(c.tags||[]).includes('cancellato')).forEach(c=>{byProv[c.provincia]=(byProv[c.provincia]||0)+1;});
   const topProv=Object.entries(byProv).sort((a,b)=>b[1]-a[1]).slice(0,6);
   const maxProv=Math.max(...topProv.map(x=>x[1]),1);
   // Pipeline
   const byStage={};PIPELINE_STAGES.forEach(s=>{byStage[s.id]=0;});
-  contacts.forEach(c=>{const s=getPipelineStage(c);if(s in byStage)byStage[s]++;});
+  contacts.filter(c=>!(c.tags||[]).includes('cancellato')).forEach(c=>{const s=getPipelineStage(c);if(s in byStage)byStage[s]++;});
   const pipeData=PIPELINE_STAGES.map(s=>({label:s.label,color:s.color,count:byStage[s.id]||0})).filter(x=>x.count>0);
   const maxPipe=Math.max(...pipeData.map(x=>x.count),1);
   // Trend 14gg
@@ -2209,6 +2230,66 @@ ${topProv.map(([p,n])=>`<tr><td>${PROVINCE[p]?.n||p} (${p})</td><td>${n}</td></t
 </body></html>`);
   w.document.close();
   showToast('📄 Report generato — si aprirà la finestra di stampa','success');
+}
+
+// ══════════════════════════════════════════════════════════════
+// ARCHIVIO CANCELLATI
+// ══════════════════════════════════════════════════════════════
+function renderArchivio(){
+  const el=document.getElementById('archivio-list');
+  if(!el) return;
+  const cancellati=contacts.filter(c=>(c.tags||[]).includes('cancellato')).sort((a,b)=>a.nome.localeCompare(b.nome));
+  if(!cancellati.length){
+    el.innerHTML=`<div class="empty-state">
+      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="12" y="20" width="48" height="40" rx="4" stroke="var(--muted)" stroke-width="2"/>
+        <path d="M8 20h56M28 20v-6a4 4 0 014-4h8a4 4 0 014 4v6" stroke="var(--muted)" stroke-width="2" stroke-linecap="round"/>
+        <line x1="28" y1="34" x2="28" y2="48" stroke="var(--muted)" stroke-width="2" stroke-linecap="round"/>
+        <line x1="44" y1="34" x2="44" y2="48" stroke="var(--muted)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div class="empty-state-title">Archivio vuoto</div>
+      <div class="empty-state-sub">Nessun contatto cancellato. I contatti con tag "cancellato" appariranno qui e saranno esclusi dalla lista principale.</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML=`<div style="margin-bottom:16px;font-size:13px;color:var(--muted)">${cancellati.length} contatt${cancellati.length===1?'o':'i'} archiviati — esclusi da lista, reminder, agenda e KPI.</div>`+
+  cancellati.map(c=>{
+    const tel=c.telefono||c.cellulare||'';
+    const otherTags=(c.tags||[]).filter(t=>t!=='cancellato');
+    return `<div class="archivio-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">
+            <span style="font-weight:700;font-size:14px">${esc(c.nome)}</span>
+            ${c.azienda?`<span style="font-size:13px;color:var(--muted)">${esc(c.azienda)}</span>`:''}
+            <span style="background:rgba(239,68,68,.15);color:var(--danger);border-radius:20px;padding:2px 8px;font-size:9px;font-weight:700;font-family:'DM Mono',monospace">CANCELLATO</span>
+            ${otherTags.map(t=>`<span style="background:${tagColor(t)}18;color:${tagColor(t)};border-radius:20px;padding:2px 7px;font-size:10px">${t}</span>`).join('')}
+          </div>
+          <div style="font-size:12px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap">
+            <span>📍 ${c.comune||PROVINCE[c.provincia]?.n||c.provincia} (${c.provincia})</span>
+            ${tel?`<span>📞 ${tel}</span>`:''}
+            ${c.ultimoContatto?`<span class="mono">Ultimo: ${c.ultimoContatto}</span>`:''}
+          </div>
+          ${c.note?`<div style="font-size:12px;color:var(--muted);margin-top:5px;background:var(--surface);border-radius:6px;padding:5px 9px">${esc(c.note)}</div>`:''}
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button onclick="ripristinaContatto(${c.id})" style="background:rgba(34,197,94,.1);color:var(--success);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-weight:600">↩ Ripristina</button>
+          <button onclick="editContact(${c.id})" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">✏️</button>
+          <button onclick="deleteContact(${c.id})" style="background:rgba(239,68,68,.08);color:var(--danger);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer" title="Elimina definitivamente">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function ripristinaContatto(id){
+  const c=contacts.find(x=>x.id===id);
+  if(!c) return;
+  c.tags=(c.tags||[]).filter(t=>t!=='cancellato');
+  await dbUpsert(c);
+  updateAll();
+  renderArchivio();
+  showToast('↩ Contatto ripristinato in lista','success');
 }
 
 </script>
