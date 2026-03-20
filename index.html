@@ -1290,6 +1290,7 @@ function renderReminders(){
         <button class="btn-secondary" onclick="editContact(${c.id})" style="font-size:14px;padding:8px 13px">✏️</button>
         <button class="btn-info" onclick="goToMap(${c.id})" style="font-size:11px;padding:6px 10px">🗺</button>
         <a href="${buildCalUrl(c)}" target="_blank" style="background:rgba(34,197,94,.1);color:var(--success);border:1px solid rgba(34,197,94,.3);padding:6px 12px;border-radius:7px;text-decoration:none;font-size:11px;font-weight:600">📅</a>
+        <button onclick="disattivaReminder(${c.id})" style="background:rgba(239,68,68,.08);color:var(--danger);border:1px solid rgba(239,68,68,.25);border-radius:7px;padding:6px 10px;font-size:11px;cursor:pointer" title="Disattiva reminder">🔕</button>
       </div>
     </div>`;
   };
@@ -2326,6 +2327,16 @@ function openAttivitaCal(){
   const details = [tel?'📞 '+tel:'', note].filter(Boolean).join('\n');
   const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(details)}&dates=${d}/${d}`;
   window.open(url,'_blank');
+}
+
+async function disattivaReminder(id){
+  const c=contacts.find(x=>x.id===id);
+  if(!c) return;
+  c.reminderAttivo=false;
+  await dbUpsert(c);
+  updateHeader();
+  renderReminders();
+  showToast('🔕 Reminder disattivato','warn');
 }
 
 </script>
