@@ -82,6 +82,7 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
 .rem-badge-danger{background:rgba(239,68,68,.15);color:var(--danger);border:1px solid rgba(239,68,68,.3)}
 .log-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;border-left:3px solid var(--accent)}
 .log-item.visita{border-left-color:#22c55e}
+.log-item.appuntamento{border-left-color:#f97316}
 .log-item.chiamata{border-left-color:#3b82f6}
 .log-item.email{border-left-color:#f59e0b}
 .log-item.offerta{border-left-color:#a855f7}
@@ -407,7 +408,8 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
       <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
         <select id="att-filter-tipo" onchange="renderAttivita()" style="width:auto;font-size:13px">
           <option value="">Tutti i tipi</option>
-          <option value="visita">🚗 Visita</option>
+          <option value="appuntamento">📅 Appuntamento</option>
+          <option value="visita">🚗 Da visitare</option>
           <option value="chiamata">📞 Chiamata</option>
           <option value="email">📧 Email</option>
           <option value="offerta">📋 Offerta inviata</option>
@@ -1816,11 +1818,12 @@ function onKanbanDrop(event, newStage){
 let attivita = [];
 const ATT_KEY = 'crm_attivita_v1';
 const ATT_TIPOS = {
-  'visita':   {label:'🚗 Visita',          color:'#22c55e'},
-  'chiamata': {label:'📞 Chiamata',         color:'#3b82f6'},
-  'email':    {label:'📧 Email',            color:'#f59e0b'},
-  'offerta':  {label:'📋 Offerta inviata',  color:'#a855f7'},
-  'altro':    {label:'📌 Altro',            color:'#94a3b8'},
+  'appuntamento': {label:'📅 Appuntamento', color:'#f97316'},
+  'visita':       {label:'🚗 Da visitare',  color:'#22c55e'},
+  'chiamata':     {label:'📞 Chiamata',     color:'#3b82f6'},
+  'email':        {label:'📧 Email',        color:'#f59e0b'},
+  'offerta':      {label:'📋 Offerta inviata', color:'#a855f7'},
+  'altro':        {label:'📌 Altro',        color:'#94a3b8'},
 };
 
 async function loadAttivita(){
@@ -1891,11 +1894,13 @@ function renderAttivita(){
 
   const totali  = list.length;
   const visite  = list.filter(a=>a.tipo==='visita').length;
+  const appunt  = list.filter(a=>a.tipo==='appuntamento').length;
   const chiam   = list.filter(a=>a.tipo==='chiamata').length;
   const offerte = list.filter(a=>a.tipo==='offerta').length;
   statsEl.innerHTML = [
     ['Totale',totali,'var(--text)'],
-    ['Visite',visite,'#22c55e'],
+    ['Appuntamenti',appunt,'#f97316'],
+    ['Da visitare',visite,'#22c55e'],
     ['Chiamate',chiam,'#3b82f6'],
     ['Offerte',offerte,'#a855f7'],
   ].map(([l,v,c])=>`<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center">
@@ -1944,13 +1949,17 @@ function openNewAttivita(preContactId){
       </div>
       <div>
         <label>Tipo attività *</label>
-        <select id="att-tipo" style="width:100%">
+        <select id="att-tipo" style="width:100%" onchange="toggleCalBtn()">
           ${Object.entries(ATT_TIPOS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('')}
         </select>
       </div>
       <div>
         <label>Data *</label>
-        <input id="att-data" type="date" value="${oggi}">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="att-data" type="date" value="${oggi}" style="flex:1" oninput="toggleCalBtn()">
+          <a id="att-cal-btn" href="#" onclick="openAttivitaCal();return false" target="_blank"
+             style="display:none;background:rgba(66,133,244,.15);color:#4285f4;border:1px solid rgba(66,133,244,.4);padding:9px 12px;border-radius:8px;text-decoration:none;font-size:12px;white-space:nowrap;font-weight:600">📅 Calendar</a>
+        </div>
       </div>
       <div class="span-2">
         <label>Esito</label>
@@ -2147,6 +2156,7 @@ function generateWeeklyReport(){
   const scaduti=contacts.filter(c=>c.reminderAttivo&&c.prossimoContatto&&c.prossimoContatto<today);
   const attSettimana=attivita.filter(a=>a.data>=weekAgoStr);
   const attVisite=attSettimana.filter(a=>a.tipo==='visita').length;
+  const attAppunt=attSettimana.filter(a=>a.tipo==='appuntamento').length;
   const attChiamate=attSettimana.filter(a=>a.tipo==='chiamata').length;
   const attOfferte=attSettimana.filter(a=>a.tipo==='offerta').length;
 
@@ -2197,7 +2207,8 @@ function generateWeeklyReport(){
 
 <h2>Attività Settimana (${attSettimana.length} totali)</h2>
 <div class="kpi-row">
-  <div class="kpi"><div class="kpi-v">${attVisite}</div><div class="kpi-l">🚗 Visite</div></div>
+  <div class="kpi"><div class="kpi-v">${attAppunt}</div><div class="kpi-l">📅 Appuntamenti</div></div>
+  <div class="kpi"><div class="kpi-v">${attVisite}</div><div class="kpi-l">🚗 Da visitare</div></div>
   <div class="kpi"><div class="kpi-v">${attChiamate}</div><div class="kpi-l">📞 Chiamate</div></div>
   <div class="kpi"><div class="kpi-v">${attOfferte}</div><div class="kpi-l">📋 Offerte</div></div>
   <div class="kpi"><div class="kpi-v">${attSettimana.filter(a=>a.tipo==='email').length}</div><div class="kpi-l">📧 Email</div></div>
@@ -2290,6 +2301,31 @@ async function ripristinaContatto(id){
   updateAll();
   renderArchivio();
   showToast('↩ Contatto ripristinato in lista','success');
+}
+
+// ══════════════════════════════════════════════════════════════
+// CALENDAR DAL FORM LOG ATTIVITÀ
+// ══════════════════════════════════════════════════════════════
+function toggleCalBtn(){
+  const tipo = document.getElementById('att-tipo')?.value;
+  const btn  = document.getElementById('att-cal-btn');
+  if(!btn) return;
+  btn.style.display = (tipo==='appuntamento'||tipo==='visita') ? 'inline-flex' : 'none';
+}
+function openAttivitaCal(){
+  const contId = document.getElementById('att-contatto')?.value;
+  const data   = document.getElementById('att-data')?.value;
+  const tipo   = document.getElementById('att-tipo')?.value;
+  const note   = document.getElementById('att-note')?.value || '';
+  if(!data){ showToast('Inserisci prima la data','warn'); return; }
+  const c = contacts.find(x=>String(x.id)===String(contId));
+  const label = tipo==='appuntamento' ? '🤝 Appuntamento' : '📋 Attività';
+  const title = c ? `${label} — ${c.nome}${c.azienda?' ('+c.azienda+')':''}` : label;
+  const d = data.replace(/-/g,'');
+  const tel = c ? (c.telefono||c.cellulare||'') : '';
+  const details = [tel?'📞 '+tel:'', note].filter(Boolean).join('\n');
+  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(details)}&dates=${d}/${d}`;
+  window.open(url,'_blank');
 }
 
 </script>
