@@ -2103,11 +2103,14 @@ function openNewAttivita(preContactId){
       <button onclick="salvaAttivita()" class="btn-primary">💾 Salva attività</button>
     </div>`;
   document.getElementById('modal-overlay').classList.add('open');
-  // Pre-spunta reminder se il contatto ce l'ha già attivo
+  // Pre-spunta reminder e mostra link email se contatto già selezionato
   if(preContactId){
     const pc=contacts.find(x=>String(x.id)===String(preContactId));
     if(pc&&pc.reminderAttivo) document.getElementById('att-reminder').checked=true;
   }
+  // Aggiorna link email subito (anche se contatto preselezionato)
+  aggiornaEmailLog();
+  toggleCalBtn();
 }
 async function salvaAttivita(){
   const contId = document.getElementById('att-contatto').value;
