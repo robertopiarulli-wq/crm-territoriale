@@ -451,7 +451,10 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
     <div class="panel" id="panel-email-gruppo">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div>
-          <div style="font-weight:800;font-size:18px">✉ Email di Gruppo</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-weight:800;font-size:18px">✉ Email di Gruppo</div>
+            <div id="email-gruppo-counter" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px 12px;font-size:12px;font-family:'DM Mono',monospace;color:var(--muted)">0 / 0</div>
+          </div>
           <div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px">Seleziona i contatti e apri Outlook con tutti in copia</div>
         </div>
         <div style="display:flex;gap:8px">
@@ -490,7 +493,10 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
     <div class="panel" id="panel-wa-gruppo">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div>
-          <div style="font-weight:800;font-size:18px">💬 WhatsApp di Gruppo</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-weight:800;font-size:18px">💬 WhatsApp di Gruppo</div>
+            <div id="wa-gruppo-counter" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px 12px;font-size:12px;font-family:'DM Mono',monospace;color:var(--muted)">0 / 0</div>
+          </div>
           <div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px">Seleziona i contatti, scrivi il messaggio e apri ogni chat con il testo già pronto</div>
         </div>
         <div style="display:flex;gap:8px">
@@ -925,7 +931,11 @@ function renderContacts(){
             ${presto&&!scaduto?`<span class="badge rem-badge-warn" style="font-size:9px">PRESTO</span>`:''}
             ${mai?`<span class="badge-mai">MAI CONTATTATO</span>`:''}
             ${attCount>0?`<span style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2px 8px;font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">${attCount} att.</span>`:''}
-            ${(c.tags||[]).map(t=>`<span style="background:${tagColor(t)}18;color:${tagColor(t)};border-radius:20px;padding:2px 8px;font-size:10px">${t}</span>`).join('')}
+            ${(c.tags||[]).filter(t=>!['prospect','contattato','offerta','trattativa','cliente','inattivo','cancellato'].includes(t)).map(t=>`<span onclick="toggleTag(${c.id},'${t}')" title="Click per rimuovere" style="cursor:pointer;background:${tagColor(t)}18;color:${tagColor(t)};border-radius:20px;padding:2px 8px;font-size:10px;border:1px solid ${tagColor(t)}33" onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='1'">${t} ✕</span>`).join('')}
+            <select onchange="addTagFromCard(${c.id},this)" style="border:1px dashed var(--border);background:transparent;color:var(--muted);border-radius:20px;padding:2px 8px;font-size:10px;cursor:pointer;max-width:120px" title="Aggiungi tag">
+              <option value="">＋ tag</option>
+              ${Object.keys(TAG_COLORS).filter(t=>!(c.tags||[]).includes(t)).map(t=>`<option value="${t}">${t}</option>`).join('')}
+            </select>
             ${['prospect','contattato','offerta','trattativa','cliente','inattivo','cancellato'].map(t=>{
               const colors={'prospect':'59,130,246','contattato':'245,158,11','offerta':'168,85,247','trattativa':'6,182,212','cliente':'34,197,94','inattivo':'148,163,184','cancellato':'239,68,68'};
               const icons={'prospect':'🎯','contattato':'📞','offerta':'📋','trattativa':'🤝','cliente':'✅','inattivo':'😴','cancellato':'🗑'};
@@ -1086,6 +1096,19 @@ async function saveContact(){
 }
 
 function editContact(id){ openModal(contacts.find(c=>c.id===id)); }
+
+function addTagFromCard(id, selectEl){
+  const tag = selectEl.value;
+  if(!tag) return;
+  selectEl.value = '';
+  const c = contacts.find(x=>x.id===id);
+  if(!c || (c.tags||[]).includes(tag)) return;
+  c.tags = [...(c.tags||[]), tag];
+  dbUpsert(c);
+  renderContacts();
+  updateHeader();
+  renderStats();
+}
 
 async function toggleTag(id, tag){
   const c = contacts.find(x=>x.id===id);
@@ -2658,6 +2681,13 @@ function renderEmailGruppo(){
   // Rimuovi dal set eventuali id non più in lista
   emailSelezionati = new Set([...emailSelezionati].filter(id=>list.some(c=>c.id===id)));
   updateEmailBadge();
+  // Aggiorna contatore totale/filtrati
+  const emailCounter = document.getElementById('email-gruppo-counter');
+  if(emailCounter){
+    const total = contacts.filter(c=>c.email&&!(c.tags||[]).includes('cancellato')).length;
+    emailCounter.textContent = (curProv||curTag) ? `${list.length} di ${total}` : `${total} con email`;
+    emailCounter.style.color = (curProv||curTag) ? 'var(--accent)' : 'var(--muted)';
+  }
 
   el.innerHTML = list.map(c=>{
     const sel = emailSelezionati.has(c.id);
@@ -2802,6 +2832,13 @@ function renderWAGruppo(){
 
   waSelezionati = new Set([...waSelezionati].filter(id=>list.some(c=>c.id===id)));
   updateWABadge();
+  // Aggiorna contatore totale/filtrati
+  const waCounter = document.getElementById('wa-gruppo-counter');
+  if(waCounter){
+    const total = contacts.filter(c=>c.cellulare&&!(c.tags||[]).includes('cancellato')).length;
+    waCounter.textContent = (curProv||curTag) ? `${list.length} di ${total}` : `${total} con cellulare`;
+    waCounter.style.color = (curProv||curTag) ? '#25d366' : 'var(--muted)';
+  }
 
   if(!list.length){
     el.innerHTML=`<div class="empty-state">
