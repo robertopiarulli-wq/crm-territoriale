@@ -511,9 +511,17 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
           <label>Messaggio</label>
           <textarea id="wa-messaggio" rows="3" placeholder="Scrivi qui il testo del messaggio..." style="margin-top:4px;resize:vertical"></textarea>
           <div style="margin-top:8px">
-            <label>🔗 Link allegato (Google Drive / OneDrive)</label>
-            <input id="wa-link" placeholder="https://drive.google.com/..." style="margin-top:4px">
-            <input id="wa-link-nome" placeholder='Nome allegato (es. "Listino Maggio 2026")' style="margin-top:6px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <label style="margin:0">🔗 Link allegati</label>
+              <button onclick="addWALink()" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;color:var(--accent)">＋ Aggiungi</button>
+            </div>
+            <div id="wa-links-container">
+              <div class="wa-link-row" style="display:flex;gap:6px;margin-bottom:6px">
+                <input placeholder="https://drive.google.com/..." style="flex:2" class="wa-link-url">
+                <input placeholder='Nome (es. Listino)' style="flex:1" class="wa-link-nome">
+                <button onclick="removeWALink(this)" style="background:transparent;border:1px solid rgba(239,68,68,.3);color:var(--danger);border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;flex-shrink:0">✕</button>
+              </div>
+            </div>
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:8px;min-width:160px">
@@ -2892,16 +2900,53 @@ function selectAllWA(soloFiltrati=true){
   renderWAGruppo();
 }
 
+function addWALink(){
+  const container = document.getElementById('wa-links-container');
+  if(!container) return;
+  const row = document.createElement('div');
+  row.className = 'wa-link-row';
+  row.style.cssText = 'display:flex;gap:6px;margin-bottom:6px';
+  row.innerHTML = `
+    <input placeholder="https://drive.google.com/..." style="flex:2" class="wa-link-url">
+    <input placeholder='Nome (es. Catalogo)' style="flex:1" class="wa-link-nome">
+    <button onclick="removeWALink(this)" style="background:transparent;border:1px solid rgba(239,68,68,.3);color:var(--danger);border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;flex-shrink:0">✕</button>`;
+  container.appendChild(row);
+}
+
+function removeWALink(btn){
+  const rows = document.querySelectorAll('#wa-links-container .wa-link-row');
+  if(rows.length <= 1){ 
+    // Non rimuovere l'ultimo, svuota solo
+    btn.closest('.wa-link-row').querySelectorAll('input').forEach(i=>i.value='');
+  } else {
+    btn.closest('.wa-link-row').remove();
+  }
+}
+
+function getWALinks(){
+  const rows = document.querySelectorAll('#wa-links-container .wa-link-row');
+  const links = [];
+  rows.forEach(row => {
+    const url  = row.querySelector('.wa-link-url')?.value?.trim()||'';
+    const nome = row.querySelector('.wa-link-nome')?.value?.trim()||'';
+    if(url) links.push({url, nome});
+  });
+  return links;
+}
+
+function buildWALinksText(links){
+  if(!links.length) return '';
+  return links.map(l => l.nome ? '📎 ' + l.nome + ':\n' + l.url : '🔗 ' + l.url).join('\n\n');
+}
+
 function deselectAllWA(){
   waSelezionati.clear();
   renderWAGruppo();
 }
 
 function copiaMessaggioWA(){
-  const msgRaw2 = document.getElementById('wa-messaggio')?.value?.trim();
-  const link2     = document.getElementById('wa-link')?.value?.trim()||'';
-  const linkNome2 = document.getElementById('wa-link-nome')?.value?.trim()||'';
-  const linkTxt2  = link2 ? (linkNome2 ? '📎 Scarica '+linkNome2+': '+link2 : '🔗 '+link2) : '';
+  const msgRaw2   = document.getElementById('wa-messaggio')?.value?.trim();
+  const linkTxt2  = buildWALinksText(getWALinks());
   const msg       = linkTxt2 ? (msgRaw2 ? msgRaw2+'\n\n'+linkTxt2 : linkTxt2) : msgRaw2;
   if(!msg){ showToast('Scrivi prima il messaggio o inserisci un link','warn'); return; }
   navigator.clipboard.writeText(msg).then(()=>showToast('📋 Messaggio copiato!','success')).catch(()=>showToast('Seleziona e copia manualmente','warn'));
@@ -2910,9 +2955,7 @@ function copiaMessaggioWA(){
 function apriTuttiWA(){
   if(!waSelezionati.size){ showToast('Seleziona almeno un contatto','warn'); return; }
   const msgRaw = document.getElementById('wa-messaggio')?.value?.trim()||'';
-  const link     = document.getElementById('wa-link')?.value?.trim()||'';
-  const linkNome = document.getElementById('wa-link-nome')?.value?.trim()||'';
-  const linkTxt  = link ? (linkNome ? '📎 Scarica '+linkNome+': '+link : '🔗 '+link) : '';
+  const linkTxt  = buildWALinksText(getWALinks());
   const msg      = linkTxt ? (msgRaw ? msgRaw+'\n\n'+linkTxt : linkTxt) : msgRaw;
   const lista = [...waSelezionati].map(id=>contacts.find(c=>c.id===id)).filter(Boolean);
 
