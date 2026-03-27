@@ -80,6 +80,11 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
 .sync-dot.syncing{animation:syncPulse .8s infinite;background:var(--warn)}
 .sync-dot.error{background:var(--danger)}
 .rem-badge-danger{background:rgba(239,68,68,.15);color:var(--danger);border:1px solid rgba(239,68,68,.3)}
+.lista-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color .2s}
+.lista-card:hover{border-color:var(--accent)}
+.lista-card.active{border-color:var(--accent);background:rgba(249,115,22,.05)}
+.lista-badge{background:var(--accent);color:#fff;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0}
+.lista-badge.full{background:var(--danger)}
 .log-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;border-left:3px solid var(--accent)}
 .log-item.visita{border-left-color:#22c55e}
 .log-item.appuntamento{border-left-color:#f97316}
@@ -458,7 +463,7 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
           <div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px">Seleziona i contatti e apri Outlook con tutti in copia</div>
         </div>
         <div style="display:flex;gap:8px">
-          <button onclick="selectAllEmail(true)" class="btn-secondary" style="font-size:12px">✅ Selezionati</button>
+          <button onclick="if(emailListaAttiva)selezionaTuttiLista('email');else selectAllEmail(true)" class="btn-secondary" style="font-size:12px">✅ Sel. lista</button>
           <button onclick="selectAllEmail(false)" class="btn-secondary" style="font-size:12px">✅ Tutti</button>
           <button onclick="deselectAllEmail()" class="btn-secondary" style="font-size:12px">✕ Nessuno</button>
         </div>
@@ -486,7 +491,21 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
         </button>
       </div>
 
-      <div id="email-gruppo-list"></div>
+      <div style="display:grid;grid-template-columns:240px 1fr;gap:16px;margin-top:16px" id="email-main-grid">
+        <!-- Sidebar liste distribuzione -->
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="font-weight:700;font-size:13px">📋 Liste</div>
+            <button onclick="creaLista('email')" style="background:var(--accent);color:#fff;border:none;border-radius:7px;padding:4px 12px;font-size:12px;cursor:pointer;font-weight:700">＋ Nuova</button>
+          </div>
+          <div id="email-liste-sidebar"></div>
+          <div onclick="emailListaAttiva=null;renderEmailGruppo()" style="margin-top:6px;padding:8px 12px;border-radius:8px;border:1px dashed var(--border);font-size:12px;color:var(--muted);cursor:pointer;text-align:center">
+            Tutti i contatti
+          </div>
+        </div>
+        <!-- Lista contatti -->
+        <div id="email-gruppo-list"></div>
+      </div>
     </div>
 
     <!-- WA DI GRUPPO -->
@@ -500,7 +519,7 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
           <div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px">Seleziona i contatti, scrivi il messaggio e apri ogni chat con il testo già pronto</div>
         </div>
         <div style="display:flex;gap:8px">
-          <button onclick="selectAllWA(true)" class="btn-secondary" style="font-size:12px">✅ Filtrati</button>
+          <button onclick="if(waListaAttiva)selezionaTuttiLista('wa');else selectAllWA(true)" class="btn-secondary" style="font-size:12px">✅ Sel. lista</button>
           <button onclick="selectAllWA(false)" class="btn-secondary" style="font-size:12px">✅ Tutti</button>
           <button onclick="deselectAllWA()" class="btn-secondary" style="font-size:12px">✕ Nessuno</button>
         </div>
@@ -546,7 +565,21 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
         </div>
       </div>
 
-      <div id="wa-gruppo-list"></div>
+      <div style="display:grid;grid-template-columns:240px 1fr;gap:16px;margin-top:16px" id="wa-main-grid">
+        <!-- Sidebar liste distribuzione -->
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="font-weight:700;font-size:13px">📋 Liste</div>
+            <button onclick="creaLista('wa')" style="background:#25d366;color:#fff;border:none;border-radius:7px;padding:4px 12px;font-size:12px;cursor:pointer;font-weight:700">＋ Nuova</button>
+          </div>
+          <div id="wa-liste-sidebar"></div>
+          <div onclick="waListaAttiva=null;renderWAGruppo()" style="margin-top:6px;padding:8px 12px;border-radius:8px;border:1px dashed var(--border);font-size:12px;color:var(--muted);cursor:pointer;text-align:center">
+            Tutti i contatti
+          </div>
+        </div>
+        <!-- Lista contatti -->
+        <div id="wa-gruppo-list"></div>
+      </div>
     </div>
 
     <!-- ARCHIVIO CANCELLATI -->
@@ -756,8 +789,8 @@ function switchTab(tab){
   if(tab==='agenda') loadAttivita().then(()=>renderAgenda());
   if(tab==='kpi') loadAttivita().then(()=>renderKPI());
   if(tab==='archivio') renderArchivio();
-  if(tab==='wa-gruppo') renderWAGruppo();
-  if(tab==='email-gruppo') renderEmailGruppo();
+  if(tab==='wa-gruppo'){ renderListeSidebar('wa'); renderWAGruppo(); }
+  if(tab==='email-gruppo'){ renderListeSidebar('email'); renderEmailGruppo(); }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2670,6 +2703,9 @@ function renderEmailGruppo(){
 
   // Lista contatti con email, escludi cancellati
   let list = contacts.filter(c=>c.email&&!(c.tags||[]).includes('cancellato'));
+  // Filtra per lista attiva se selezionata
+  const listaEmailAttiva = emailListaAttiva ? listeDist.email.find(l=>l.id===emailListaAttiva) : null;
+  if(listaEmailAttiva) list = listaEmailAttiva.contatti.map(id=>contacts.find(c=>c.id===id)).filter(c=>c&&c.email);
   if(curProv) list = list.filter(c=>c.provincia===curProv);
   if(curTag)  list = list.filter(c=>(c.tags||[]).includes(curTag));
   list.sort((a,b)=>a.nome.localeCompare(b.nome));
@@ -2699,7 +2735,9 @@ function renderEmailGruppo(){
 
   el.innerHTML = list.map(c=>{
     const sel = emailSelezionati.has(c.id);
-    return `<div class="email-contact-item ${sel?'selected':''}" onclick="toggleEmailContatto(${c.id})">
+    const inListaEmail = listaEmailAttiva && listaEmailAttiva.contatti.includes(c.id);
+    return `<div class="email-contact-item ${sel?'selected':''}" onclick="${listaEmailAttiva?'':'toggleEmailContatto('+c.id+')'}">
+      ${listaEmailAttiva?`<div onclick="event.stopPropagation();toggleContattoInLista('email',${c.id})" style="width:22px;height:22px;border-radius:50%;border:2px solid ${inListaEmail?'var(--accent)':'var(--border)'};background:${inListaEmail?'var(--accent)':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:11px;color:#fff">${inListaEmail?'✓':''}</div>`:''}
       <div class="check-circle">${sel?'✓':''}</div>
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:13px">${esc(c.nome)}${c.azienda?` <span style="font-weight:400;color:var(--muted);font-size:12px">— ${esc(c.azienda)}</span>`:''}</div>
@@ -2709,6 +2747,7 @@ function renderEmailGruppo(){
         </div>
       </div>
       ${(c.tags||[]).filter(t=>!['cancellato'].includes(t)).slice(0,3).map(t=>`<span style="background:${tagColor(t)}18;color:${tagColor(t)};border-radius:20px;padding:2px 8px;font-size:10px">${t}</span>`).join('')}
+      ${listaEmailAttiva ? `<button onclick="event.stopPropagation();toggleContattoInLista('email',${c.id})" style="background:${inListaEmail?'rgba(239,68,68,.1)':'rgba(249,115,22,.1)'};border:1px solid ${inListaEmail?'rgba(239,68,68,.3)':'rgba(249,115,22,.3)'};color:${inListaEmail?'var(--danger)':'var(--accent)'};border-radius:7px;padding:3px 10px;font-size:11px;cursor:pointer;flex-shrink:0">${inListaEmail?'− Rimuovi':'＋ Lista'}</button>` : ''}
     </div>`;
   }).join('');
 }
@@ -2831,6 +2870,9 @@ function renderWAGruppo(){
   selTag.innerHTML  = '<option value="">Tutti</option>'  + tags.map(t=>`<option value="${t}" ${t===curTag?'selected':''}>${t}</option>`).join('');
 
   let list = withCell;
+  // Filtra per lista attiva se selezionata
+  const listaWAAttiva = waListaAttiva ? listeDist.wa.find(l=>l.id===waListaAttiva) : null;
+  if(listaWAAttiva) list = listaWAAttiva.contatti.map(id=>contacts.find(c=>c.id===id)).filter(c=>c&&c.cellulare);
   if(curProv) list = list.filter(c=>c.provincia===curProv);
   if(curTag)  list = list.filter(c=>(c.tags||[]).includes(curTag));
   list.sort((a,b)=>a.nome.localeCompare(b.nome));
@@ -2989,6 +3031,176 @@ function apriTuttiWA(){
       <button onclick="closeModal()" class="btn-secondary">Chiudi</button>
     </div>`;
   document.getElementById('modal-overlay').classList.add('open');
+}
+
+// ══════════════════════════════════════════════════════════════
+// LISTE DI DISTRIBUZIONE (Email + WA)
+// ══════════════════════════════════════════════════════════════
+const LISTE_KEY = 'crm_liste_distribuzione';
+let listeDist = {email:[], wa:[]};
+let emailListaAttiva = null;
+let waListaAttiva = null;
+
+function loadListeDist(){
+  try { listeDist = JSON.parse(localStorage.getItem(LISTE_KEY)) || {email:[], wa:[]}; }
+  catch(e){ listeDist = {email:[], wa:[]}; }
+  if(!listeDist.email) listeDist.email = [];
+  if(!listeDist.wa)    listeDist.wa    = [];
+}
+
+function saveListeDist(){
+  localStorage.setItem(LISTE_KEY, JSON.stringify(listeDist));
+}
+
+function creaLista(tipo){
+  const maxDefault = tipo==='email' ? 500 : 256;
+  document.getElementById('modal-title').textContent = tipo==='email' ? '✉ Nuova Lista Email' : '💬 Nuova Lista WA';
+  document.getElementById('modal-content').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label>Nome lista *</label>
+        <input id="lista-nome" placeholder='es. "Podologi Puglia Maggio"' style="margin-top:6px">
+      </div>
+      <div>
+        <label>Limite contatti</label>
+        <input id="lista-limite" type="number" value="${maxDefault}" min="1" max="2000" style="margin-top:6px">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Email: max 500 raccomandato · WA: max 256 per broadcast</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px">
+        <button class="btn-secondary" onclick="closeModal()">Annulla</button>
+        <button class="btn-primary" onclick="salvaLista('${tipo}')">✅ Crea lista</button>
+      </div>
+    </div>`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function salvaLista(tipo){
+  const nome   = document.getElementById('lista-nome')?.value.trim();
+  const limite = parseInt(document.getElementById('lista-limite')?.value)||500;
+  if(!nome){ showToast('Inserisci un nome per la lista','warn'); return; }
+  const id = Date.now();
+  listeDist[tipo].push({id, nome, limite, contatti:[]});
+  saveListeDist();
+  closeModal();
+  renderListeSidebar(tipo);
+  showToast('✅ Lista "'+nome+'" creata!','success');
+}
+
+function eliminaLista(tipo, id){
+  if(!confirm('Eliminare questa lista? I contatti non vengono eliminati dal CRM.')) return;
+  listeDist[tipo] = listeDist[tipo].filter(l=>l.id!==id);
+  saveListeDist();
+  if(tipo==='email'){ emailListaAttiva=null; renderListeSidebar('email'); renderEmailGruppo(); }
+  else              { waListaAttiva=null;    renderListeSidebar('wa');    renderWAGruppo(); }
+}
+
+function rinominaLista(tipo, id){
+  const lista = listeDist[tipo].find(l=>l.id===id);
+  if(!lista) return;
+  document.getElementById('modal-title').textContent = 'Rinomina lista';
+  document.getElementById('modal-content').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label>Nuovo nome</label>
+        <input id="lista-new-nome" value="${esc(lista.nome)}" style="margin-top:6px">
+      </div>
+      <div>
+        <label>Limite contatti</label>
+        <input id="lista-new-limite" type="number" value="${lista.limite}" min="1" max="2000" style="margin-top:6px">
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px">
+        <button class="btn-secondary" onclick="closeModal()">Annulla</button>
+        <button class="btn-primary" onclick="aggiornaNomeLista('${tipo}',${id})">💾 Salva</button>
+      </div>
+    </div>`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function aggiornaNomeLista(tipo, id){
+  const lista = listeDist[tipo].find(l=>l.id===id);
+  if(!lista) return;
+  lista.nome   = document.getElementById('lista-new-nome')?.value.trim() || lista.nome;
+  lista.limite = parseInt(document.getElementById('lista-new-limite')?.value)||lista.limite;
+  saveListeDist();
+  closeModal();
+  renderListeSidebar(tipo);
+  if(tipo==='email') renderEmailGruppo(); else renderWAGruppo();
+}
+
+function renderListeSidebar(tipo){
+  const el = document.getElementById(tipo+'-liste-sidebar');
+  if(!el) return;
+  const liste = listeDist[tipo];
+  if(!liste.length){ el.innerHTML='<div style="font-size:12px;color:var(--muted);padding:8px 0">Nessuna lista</div>'; return; }
+  const attiva = tipo==='email' ? emailListaAttiva : waListaAttiva;
+  el.innerHTML = liste.map(l=>{
+    const piena = l.contatti.length >= l.limite;
+    const isActive = attiva===l.id;
+    return `<div class="lista-card ${isActive?'active':''}" onclick="selezionaLista('${tipo}',${l.id})">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.nome)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">max ${l.limite} contatti</div>
+      </div>
+      <div class="lista-badge ${piena?'full':''}">${l.contatti.length}/${l.limite}</div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button onclick="event.stopPropagation();rinominaLista('${tipo}',${l.id})" style="background:transparent;border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:11px;cursor:pointer;color:var(--muted)">✏️</button>
+        <button onclick="event.stopPropagation();eliminaLista('${tipo}',${l.id})" style="background:transparent;border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:2px 7px;font-size:11px;cursor:pointer;color:var(--danger)">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selezionaLista(tipo, id){
+  if(tipo==='email'){
+    emailListaAttiva = emailListaAttiva===id ? null : id;
+    renderListeSidebar('email');
+    renderEmailGruppo();
+  } else {
+    waListaAttiva = waListaAttiva===id ? null : id;
+    renderListeSidebar('wa');
+    renderWAGruppo();
+  }
+}
+
+function toggleContattoInLista(tipo, contactId){
+  if(!emailListaAttiva && tipo==='email') return;
+  if(!waListaAttiva    && tipo==='wa')    return;
+  const listaId = tipo==='email' ? emailListaAttiva : waListaAttiva;
+  const lista   = listeDist[tipo].find(l=>l.id===listaId);
+  if(!lista) return;
+
+  if(lista.contatti.includes(contactId)){
+    lista.contatti = lista.contatti.filter(id=>id!==contactId);
+  } else {
+    if(lista.contatti.length >= lista.limite){
+      showToast('Lista piena! Limite di '+lista.limite+' contatti raggiunto','warn'); return;
+    }
+    // Controlla duplicati in altre liste dello stesso tipo
+    const inAltraLista = listeDist[tipo].some(l=>l.id!==listaId && l.contatti.includes(contactId));
+    if(inAltraLista){
+      if(!confirm('Questo contatto è già in un\'altra lista. Aggiungerlo comunque?')) return;
+    }
+    lista.contatti.push(contactId);
+  }
+  saveListeDist();
+  renderListeSidebar(tipo);
+  if(tipo==='email') renderEmailGruppo(); else renderWAGruppo();
+}
+
+function selezionaTuttiLista(tipo){
+  const listaId = tipo==='email' ? emailListaAttiva : waListaAttiva;
+  if(!listaId) return;
+  const lista = listeDist[tipo].find(l=>l.id===listaId);
+  if(!lista) return;
+  const contatti = lista.contatti.map(id=>contacts.find(c=>c.id===id)).filter(Boolean);
+  if(tipo==='email'){
+    contatti.forEach(c=>{ if(c.email) emailSelezionati.add(c.id); });
+    updateEmailBadge(); renderEmailGruppo();
+  } else {
+    contatti.forEach(c=>{ if(c.cellulare) waSelezionati.add(c.id); });
+    updateWABadge(); renderWAGruppo();
+  }
+  showToast('✅ Selezionati tutti i contatti della lista','success');
 }
 
 </script>
