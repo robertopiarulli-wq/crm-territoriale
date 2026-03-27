@@ -2703,9 +2703,9 @@ function renderEmailGruppo(){
 
   // Lista contatti con email, escludi cancellati
   let list = contacts.filter(c=>c.email&&!(c.tags||[]).includes('cancellato'));
-  // Filtra per lista attiva se selezionata
+  // Lista attiva: mostra TUTTI i contatti ma con pulsante +/-
   const listaEmailAttiva = emailListaAttiva ? listeDist.email.find(l=>l.id===emailListaAttiva) : null;
-  if(listaEmailAttiva) list = listaEmailAttiva.contatti.map(id=>contacts.find(c=>c.id===id)).filter(c=>c&&c.email);
+  // Non filtrare — mostra tutti così l'utente può aggiungere/rimuovere
   if(curProv) list = list.filter(c=>c.provincia===curProv);
   if(curTag)  list = list.filter(c=>(c.tags||[]).includes(curTag));
   list.sort((a,b)=>a.nome.localeCompare(b.nome));
@@ -2729,8 +2729,13 @@ function renderEmailGruppo(){
   const emailCounter = document.getElementById('email-gruppo-counter');
   if(emailCounter){
     const total = contacts.filter(c=>c.email&&!(c.tags||[]).includes('cancellato')).length;
-    emailCounter.textContent = (curProv||curTag) ? `${list.length} di ${total}` : `${total} con email`;
-    emailCounter.style.color = (curProv||curTag) ? 'var(--accent)' : 'var(--muted)';
+    if(listaEmailAttiva){
+      emailCounter.textContent = `Lista: ${listaEmailAttiva.contatti.length}/${listaEmailAttiva.limite}`;
+      emailCounter.style.color = listaEmailAttiva.contatti.length >= listaEmailAttiva.limite ? 'var(--danger)' : 'var(--accent)';
+    } else {
+      emailCounter.textContent = (curProv||curTag) ? `${list.length} di ${total}` : `${total} con email`;
+      emailCounter.style.color = (curProv||curTag) ? 'var(--accent)' : 'var(--muted)';
+    }
   }
 
   el.innerHTML = list.map(c=>{
@@ -2870,9 +2875,8 @@ function renderWAGruppo(){
   selTag.innerHTML  = '<option value="">Tutti</option>'  + tags.map(t=>`<option value="${t}" ${t===curTag?'selected':''}>${t}</option>`).join('');
 
   let list = withCell;
-  // Filtra per lista attiva se selezionata
+  // Lista attiva: mostra TUTTI i contatti con pulsante +/-
   const listaWAAttiva = waListaAttiva ? listeDist.wa.find(l=>l.id===waListaAttiva) : null;
-  if(listaWAAttiva) list = listaWAAttiva.contatti.map(id=>contacts.find(c=>c.id===id)).filter(c=>c&&c.cellulare);
   if(curProv) list = list.filter(c=>c.provincia===curProv);
   if(curTag)  list = list.filter(c=>(c.tags||[]).includes(curTag));
   list.sort((a,b)=>a.nome.localeCompare(b.nome));
@@ -2912,6 +2916,7 @@ function renderWAGruppo(){
         </div>
       </div>
       ${(c.tags||[]).filter(t=>t!=='cancellato').slice(0,3).map(t=>`<span style="background:${tagColor(t)}18;color:${tagColor(t)};border-radius:20px;padding:2px 8px;font-size:10px">${t}</span>`).join('')}
+      ${listaWAAttiva ? (()=>{ const inL=listaWAAttiva.contatti.includes(c.id); return `<button onclick="event.stopPropagation();toggleContattoInLista('wa',${c.id})" style="background:${inL?'rgba(239,68,68,.1)':'rgba(37,211,102,.1)'};border:1px solid ${inL?'rgba(239,68,68,.3)':'rgba(37,211,102,.3)'};color:${inL?'var(--danger)':'#25d366'};border-radius:7px;padding:3px 10px;font-size:11px;cursor:pointer;flex-shrink:0">${inL?'− Rimuovi':'＋ Lista'}</button>`; })() : ''}
     </div>`;
   }).join('');
 }
