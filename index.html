@@ -463,9 +463,10 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
           <div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px">Seleziona i contatti e apri Outlook con tutti in copia</div>
         </div>
         <div style="display:flex;gap:8px">
-          <button onclick="if(emailListaAttiva)selezionaTuttiLista('email');else selectAllEmail(true)" class="btn-secondary" style="font-size:12px">✅ Sel. lista</button>
+          <button onclick="selectAllEmail(true)" class="btn-secondary" style="font-size:12px">✅ Filtrati</button>
           <button onclick="selectAllEmail(false)" class="btn-secondary" style="font-size:12px">✅ Tutti</button>
           <button onclick="deselectAllEmail()" class="btn-secondary" style="font-size:12px">✕ Nessuno</button>
+          <button onclick="aggiungiSelezionatiAllaLista('email')" class="btn-secondary" style="font-size:12px;background:rgba(249,115,22,.12);color:var(--accent);border-color:rgba(249,115,22,.4)" id="email-add-to-lista-btn">➕ Aggiungi a lista</button>
         </div>
       </div>
 
@@ -519,9 +520,10 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
           <div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px">Seleziona i contatti, scrivi il messaggio e apri ogni chat con il testo già pronto</div>
         </div>
         <div style="display:flex;gap:8px">
-          <button onclick="if(waListaAttiva)selezionaTuttiLista('wa');else selectAllWA(true)" class="btn-secondary" style="font-size:12px">✅ Sel. lista</button>
+          <button onclick="selectAllWA(true)" class="btn-secondary" style="font-size:12px">✅ Filtrati</button>
           <button onclick="selectAllWA(false)" class="btn-secondary" style="font-size:12px">✅ Tutti</button>
           <button onclick="deselectAllWA()" class="btn-secondary" style="font-size:12px">✕ Nessuno</button>
+          <button onclick="aggiungiSelezionatiAllaLista('wa')" class="btn-secondary" style="font-size:12px;background:rgba(37,211,102,.12);color:#25d366;border-color:rgba(37,211,102,.4)" id="wa-add-to-lista-btn">➕ Aggiungi a lista</button>
         </div>
       </div>
 
@@ -3190,6 +3192,30 @@ function toggleContattoInLista(tipo, contactId){
   saveListeDist();
   renderListeSidebar(tipo);
   if(tipo==='email') renderEmailGruppo(); else renderWAGruppo();
+}
+
+function aggiungiSelezionatiAllaLista(tipo){
+  const listaId = tipo==='email' ? emailListaAttiva : waListaAttiva;
+  if(!listaId){ showToast('Seleziona prima una lista dalla sidebar','warn'); return; }
+  const lista = listeDist[tipo].find(l=>l.id===listaId);
+  if(!lista){ return; }
+  const selezionati = [...(tipo==='email' ? emailSelezionati : waSelezionati)];
+  if(!selezionati.length){ showToast('Seleziona prima i contatti da aggiungere','warn'); return; }
+  let aggiunti = 0, gia = 0, piena = 0;
+  for(const id of selezionati){
+    if(lista.contatti.includes(id)){ gia++; continue; }
+    if(lista.contatti.length >= lista.limite){ piena++; continue; }
+    lista.contatti.push(id);
+    aggiunti++;
+  }
+  saveListeDist();
+  renderListeSidebar(tipo);
+  if(tipo==='email') renderEmailGruppo(); else renderWAGruppo();
+  let msg = '';
+  if(aggiunti) msg += aggiunti+' aggiunti';
+  if(gia) msg += (msg?', ':'')+gia+' già presenti';
+  if(piena) msg += (msg?', ':'')+piena+' non aggiunti (lista piena)';
+  showToast('✅ '+msg, aggiunti?'success':'warn');
 }
 
 function selezionaTuttiLista(tipo){
