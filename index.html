@@ -1865,6 +1865,7 @@ async function initApp(cloud){
   setSyncStatus(cloud?'syncing':'local');
   if(cloud) setupRealtime();
   contacts=await dbLoad();
+  loadListeDist();
   if(!contacts.length){ contacts=getSampleContacts(); for(const c of contacts) await dbUpsert(c); }
   populateLeadProv();
   updateAll();
@@ -3059,6 +3060,24 @@ function loadListeDist(){
 
 function saveListeDist(){
   localStorage.setItem(LISTE_KEY, JSON.stringify(listeDist));
+  // Backup su Supabase se connesso
+  if(useCloud && supabaseClient){
+    supabaseClient.from('settings').upsert({key: LISTE_KEY, value: JSON.stringify(listeDist)}).then(()=>{}).catch(()=>{});
+  }
+}
+
+async function loadListeDistCloud(){
+  if(!useCloud || !supabaseClient) return;
+  try {
+    const {data} = await supabaseClient.from('settings').select('value').eq('key', LISTE_KEY).single();
+    if(data?.value){
+      const parsed = JSON.parse(data.value);
+      if(parsed && (parsed.email?.length || parsed.wa?.length)){
+        listeDist = parsed;
+        console.log('Liste caricate da cloud:', listeDist.email.length, 'email,', listeDist.wa.length, 'wa');
+      }
+    }
+  } catch(e){ console.log('Liste non trovate su cloud, uso localStorage'); }
 }
 
 function creaLista(tipo){
