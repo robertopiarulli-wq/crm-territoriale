@@ -3004,41 +3004,60 @@ function copiaMessaggioWA(){
   navigator.clipboard.writeText(msg).then(()=>showToast('📋 Messaggio copiato!','success')).catch(()=>showToast('Seleziona e copia manualmente','warn'));
 }
 
+let _waLista = [];
+let _waIndex = 0;
+let _waMsg = '';
+
 function apriTuttiWA(){
   if(!waSelezionati.size){ showToast('Seleziona almeno un contatto','warn'); return; }
   const msgRaw = document.getElementById('wa-messaggio')?.value?.trim()||'';
-  const linkTxt  = buildWALinksText(getWALinks());
-  const msg      = linkTxt ? (msgRaw ? msgRaw+'\n\n'+linkTxt : linkTxt) : msgRaw;
-  const lista = [...waSelezionati].map(id=>contacts.find(c=>c.id===id)).filter(Boolean);
+  const linkTxt = buildWALinksText(getWALinks());
+  _waMsg  = linkTxt ? (msgRaw ? msgRaw+'\n\n'+linkTxt : linkTxt) : msgRaw;
+  _waLista = [...waSelezionati].map(id=>contacts.find(c=>c.id===id)).filter(c=>c&&c.cellulare);
+  _waIndex = 0;
+
+  if(!_waLista.length){ showToast('Nessun contatto con cellulare selezionato','warn'); return; }
 
   // Copia messaggio negli appunti
-  if(msg) navigator.clipboard?.writeText(msg).catch(()=>{});
+  if(_waMsg) navigator.clipboard?.writeText(_waMsg).catch(()=>{});
 
-  // Mostra lista link cliccabili nel modale
-  document.getElementById('modal-title').textContent = `💬 Invia a ${lista.length} contatti`;
+  mostraModaleWA();
+}
+
+function mostraModaleWA(){
+  if(_waIndex >= _waLista.length){
+    closeModal();
+    showToast('✅ Completato! Inviati a '+_waLista.length+' contatti','success');
+    return;
+  }
+  const c = _waLista[_waIndex];
+  const num = waNum(c.cellulare);
+  const url = `https://wa.me/${num}${_waMsg?'?text='+encodeURIComponent(_waMsg):''}`;
+  const rimasti = _waLista.length - _waIndex - 1;
+
+  document.getElementById('modal-title').textContent = `💬 ${_waIndex+1} di ${_waLista.length}`;
   document.getElementById('modal-content').innerHTML = `
-    <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.7">
-      ${msg ? `Il messaggio è stato <strong style="color:var(--text)">copiato negli appunti</strong>.<br>` : ''}
-      Clicca ogni link → si apre WhatsApp Web → incolla con <kbd style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-family:'DM Mono',monospace;font-size:11px">Ctrl+V</kbd>
-    </div>
-    ${msg?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:12px;margin-bottom:16px;line-height:1.6;white-space:pre-wrap">${esc(msg)}</div>`:''}
-    <div style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;margin-bottom:16px">
-      ${lista.map((c,i)=>{
-        const num = waNum(c.cellulare);
-        const url = `https://wa.me/${num}${msg?'?text='+encodeURIComponent(msg):''}`;
-        return `<a href="${url}" target="_blank" style="display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:10px 14px;text-decoration:none;transition:border-color .15s" onmouseover="this.style.borderColor='#25d366'" onmouseout="this.style.borderColor='var(--border)'">
-          <span style="background:#25d36620;color:#25d366;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">${i+1}</span>
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:700;font-size:13px;color:var(--text)">${esc(c.nome)}${c.azienda?` <span style="font-weight:400;color:var(--muted);font-size:12px">— ${esc(c.azienda)}</span>`:''}</div>
-            <div style="font-size:11px;color:#25d366;margin-top:1px">📱 ${esc(c.cellulare)}</div>
-          </div>
-          <span style="color:#25d366;font-size:18px;flex-shrink:0">→</span>
-        </a>`;
-      }).join('')}
-    </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      ${msg?`<button onclick="copiaMessaggioWA()" class="btn-secondary" style="font-size:12px">📋 Copia di nuovo</button>`:''}
-      <button onclick="closeModal()" class="btn-secondary">Chiudi</button>
+    <div style="text-align:center;padding:10px 0 20px">
+      <div style="font-size:28px;margin-bottom:8px">📱</div>
+      <div style="font-weight:700;font-size:17px;margin-bottom:4px">${esc(c.nome)}</div>
+      ${c.azienda?`<div style="font-size:13px;color:var(--muted);margin-bottom:4px">${esc(c.azienda)}</div>`:''}
+      <div style="font-size:13px;color:#25d366;margin-bottom:20px">${esc(c.cellulare)}</div>
+      ${_waMsg?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:12px;text-align:left;margin-bottom:20px;line-height:1.6;white-space:pre-wrap;max-height:120px;overflow-y:auto">${esc(_waMsg)}</div>`:''}
+      <div style="font-size:12px;color:var(--muted);margin-bottom:16px">
+        ${_waMsg ? '✅ Messaggio copiato negli appunti · ' : ''}${rimasti > 0 ? rimasti+' rimasti dopo questo' : 'Ultimo contatto'}
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <a href="${url}" target="_blank" onclick="setTimeout(()=>{ _waIndex++; mostraModaleWA(); },1500)"
+           style="background:#25d366;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block">
+          💬 Apri WhatsApp
+        </a>
+        <button onclick="_waIndex++;mostraModaleWA()" style="background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:12px 20px;border-radius:10px;cursor:pointer;font-size:13px">
+          ⏭ Salta
+        </button>
+      </div>
+      <div style="margin-top:16px">
+        <button onclick="closeModal()" style="background:transparent;border:none;color:var(--muted);font-size:12px;cursor:pointer">✕ Interrompi</button>
+      </div>
     </div>`;
   document.getElementById('modal-overlay').classList.add('open');
 }
