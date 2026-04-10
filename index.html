@@ -260,6 +260,7 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
     <button class="tab-btn" onclick="switchTab('kpi')" id="tab-kpi">📈 KPI</button>
     <button class="tab-btn" onclick="switchTab('email-gruppo')" id="tab-email-gruppo">✉ Email Gruppo</button>
     <button class="tab-btn" onclick="switchTab('wa-gruppo')" id="tab-wa-gruppo">💬 WA Gruppo</button>
+    <button class="tab-btn" onclick="switchTab('qualita')" id="tab-qualita">🔍 Qualità</button>
     <button class="tab-btn archivio-tab" onclick="switchTab('archivio')" id="tab-archivio">🗑 Archivio<span class='tab-count' id='tab-count-archivio' style='display:none;background:rgba(239,68,68,.7)'>0</span></button>
   </div>
 
@@ -587,6 +588,19 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
     </div>
 
     <!-- ARCHIVIO CANCELLATI -->
+    <!-- QUALITÀ CONTATTI -->
+    <div class="panel" id="panel-qualita">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+        <div style="font-weight:800;font-size:18px">🔍 Qualità Contatti</div>
+        <div style="display:flex;gap:8px">
+          <button onclick="renderQualita()" class="btn-secondary" style="font-size:12px">🔄 Aggiorna</button>
+          <button onclick="avviaVerificaWAMassiva()" style="background:rgba(37,211,102,.12);color:#25d366;border:1px solid rgba(37,211,102,.3);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-weight:700">📱 Verifica WA massiva</button>
+        </div>
+      </div>
+      <div id="qualita-stats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px"></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px" id="qualita-sections"></div>
+    </div>
+
     <div class="panel" id="panel-archivio">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div>
@@ -790,6 +804,7 @@ function switchTab(tab){
   if(tab==='export') renderExportStats();
   if(tab==='pipeline') renderPipeline();
   if(tab==='attivita') loadAttivita().then(()=>renderAttivita());
+  if(tab==='qualita') renderQualita();
   if(tab==='agenda') loadAttivita().then(()=>renderAgenda());
   if(tab==='kpi') loadAttivita().then(()=>renderKPI());
   if(tab==='archivio') renderArchivio();
