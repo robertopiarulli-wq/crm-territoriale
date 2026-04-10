@@ -1451,10 +1451,10 @@ function updateMapSidebar(sel, nearbyIds){
 // ══════════════════════════════════════════════════════════════
 // LEAD AI
 // ══════════════════════════════════════════════════════════════
-function populateLeadProv(){ const s=document.getElementById('lead-prov'); s.innerHTML=Object.entries(PROVINCE).sort((a,b)=>a[1].n.localeCompare(b[1].n)).map(([k,v])=>`<option value="${k}">${v.n} (${k})</option>`).join(''); s.value='BA'; }
+function populateLeadProv(){ const s=document.getElementById('lead-prov'); if(!s) return; s.innerHTML=Object.entries(PROVINCE).sort((a,b)=>a[1].n.localeCompare(b[1].n)).map(([k,v])=>`<option value="${k}">${v.n} (${k})</option>`).join(''); s.value='BA'; }
 
 async function doLeadSearch(){
-  const prov=document.getElementById('lead-prov').value;
+  const prov=document.getElementById('lead-prov')?.value||'';
   const settore=document.getElementById('lead-settore').value.trim()||'generico';
   const kw=document.getElementById('lead-kw').value.trim();
   const pNome=PROVINCE[prov]?.n||prov;
