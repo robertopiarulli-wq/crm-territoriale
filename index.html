@@ -80,6 +80,16 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
 .sync-dot.syncing{animation:syncPulse .8s infinite;background:var(--warn)}
 .sync-dot.error{background:var(--danger)}
 .rem-badge-danger{background:rgba(239,68,68,.15);color:var(--danger);border:1px solid rgba(239,68,68,.3)}
+.lead-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px;transition:border-color .2s}
+.lead-card:hover{border-color:var(--accent)}
+.lead-card.nuovo{border-left:3px solid #3b82f6}
+.lead-card.contattato{border-left:3px solid #f59e0b}
+.lead-card.importato{border-left:3px solid #22c55e;opacity:.6}
+.lead-card.ignorato{border-left:3px solid #ef4444;opacity:.5}
+.lead-fonte{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;border-radius:4px;padding:2px 7px}
+.lead-fonte.preventivopro{background:rgba(249,115,22,.15);color:var(--accent)}
+.lead-fonte.google_maps{background:rgba(59,130,246,.15);color:#3b82f6}
+.lead-fonte.manuale{background:rgba(148,163,184,.15);color:#94a3b8}
 .lista-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color .2s}
 .lista-card:hover{border-color:var(--accent)}
 .lista-card.active{border-color:var(--accent);background:rgba(249,115,22,.05)}
@@ -250,7 +260,7 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
   <div id="tabbar">
     <button class="tab-btn active" onclick="switchTab('lista')" id="tab-lista">📋 Contatti</button>
     <button class="tab-btn" onclick="switchTab('mappa')" id="tab-mappa">🗺 Mappa</button>
-    <button class="tab-btn" onclick="switchTab('lead')" id="tab-lead">🔍 Lead AI</button>
+    <button class="tab-btn" onclick="switchTab('lead')" id="tab-lead">🎯 Lead<span class="tab-count" id="tab-count-lead" style="display:none">0</span></button>
     <button class="tab-btn" onclick="switchTab('reminder')" id="tab-reminder">🔔 Reminder<span class='tab-count' id='tab-count-reminder' style='display:none'>0</span></button>
     <button class="tab-btn" onclick="switchTab('export')" id="tab-export">📤 Export</button>
     <button class="tab-btn" onclick="switchTab('roadmap')" id="tab-roadmap">🛣 Road Map</button>
@@ -311,28 +321,42 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
 
     <!-- LEAD AI -->
     <div class="panel" id="panel-lead">
-      <div class="card" style="margin-bottom:18px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-          <span style="background:rgba(249,115,22,.15);color:var(--accent);border-radius:8px;padding:4px 12px;font-size:11px" class="mono">AI POWERED</span>
-          <span style="font-weight:700;font-size:14px">Ricerca Lead per Provincia</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-weight:800;font-size:18px">🎯 Lead Scouting</div>
+          <div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px">Contatti potenziali da PreventivoPro, scraper e import manuale</div>
         </div>
-        <div class="grid-2" style="align-items:end">
-          <div><label>Provincia</label><select id="lead-prov"></select></div>
-          <div><label>Settore</label><input id="lead-settore" value="impianti elettrici" placeholder="es. edilizia, IT..."></div>
-          <div class="span-2"><label>Parole chiave (opzionale)</label><input id="lead-kw" placeholder="es. ristrutturazione, B2B, manutenzione..."></div>
-          <div class="span-2" style="display:flex;justify-content:flex-end">
-            <button class="btn-primary" onclick="doLeadSearch()" id="lead-btn" style="padding:10px 28px">🔍 Cerca Lead</button>
-          </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="loadLead()" class="btn-secondary" style="font-size:12px">🔄 Aggiorna</button>
+          <button onclick="apriNuovoLead()" class="btn-primary" style="font-size:12px">➕ Aggiungi manuale</button>
         </div>
       </div>
-      <div id="lead-error" style="display:none" class="card"></div>
-      <div id="lead-loading" style="display:none;text-align:center;padding:60px;color:var(--muted)">
-        <div class="spin" style="font-size:28px;margin-bottom:12px">⟳</div>
-        <div id="lead-loading-text">Ricerca...</div>
+
+      <!-- FILTRI -->
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+        <select id="lead-filter-stato" onchange="renderLead()" style="width:auto;font-size:13px">
+          <option value="">Tutti gli stati</option>
+          <option value="nuovo">🔵 Nuovi</option>
+          <option value="contattato">🟡 Contattati</option>
+          <option value="importato">🟢 Importati nel CRM</option>
+          <option value="ignorato">🔴 Ignorati</option>
+        </select>
+        <select id="lead-filter-fonte" onchange="renderLead()" style="width:auto;font-size:13px">
+          <option value="">Tutte le fonti</option>
+          <option value="preventivopro">📋 PreventivoPro</option>
+          <option value="google_maps">🗺 Google Maps</option>
+          <option value="manuale">✏️ Manuale</option>
+        </select>
+        <select id="lead-filter-prov" onchange="renderLead()" style="width:auto;font-size:13px">
+          <option value="">Tutte le province</option>
+        </select>
+        <div id="lead-counter" style="margin-left:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:12px;font-family:'DM Mono',monospace;color:var(--muted)">0 lead</div>
       </div>
-      <div id="lead-results"></div>
-      <div id="lead-empty" style="text-align:center;padding:60px;color:var(--muted);font-size:13px">Seleziona provincia e settore, poi clicca Cerca</div>
+
+      <div id="lead-list"></div>
     </div>
+
+    <!-- REMINDER
 
     <!-- REMINDER -->
     <div class="panel" id="panel-reminder">
@@ -653,7 +677,7 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
 // ══════════════════════════════════════════════════════════════
 // PROVINCE
 // ══════════════════════════════════════════════════════════════
-const PROVINCE={AG:{n:"Agrigento",lat:37.31,lng:13.58},AL:{n:"Alessandria",lat:44.91,lng:8.61},AN:{n:"Ancona",lat:43.61,lng:13.51},AO:{n:"Aosta",lat:45.74,lng:7.32},AR:{n:"Arezzo",lat:43.46,lng:11.88},AP:{n:"Ascoli Piceno",lat:42.85,lng:13.57},AT:{n:"Asti",lat:44.90,lng:8.21},AV:{n:"Avellino",lat:40.91,lng:14.79},BA:{n:"Bari",lat:41.12,lng:16.87},BT:{n:"BAT",lat:41.30,lng:16.28},BL:{n:"Belluno",lat:46.14,lng:12.22},BN:{n:"Benevento",lat:41.13,lng:14.78},BG:{n:"Bergamo",lat:45.70,lng:9.67},BI:{n:"Biella",lat:45.56,lng:8.05},BO:{n:"Bologna",lat:44.49,lng:11.34},BZ:{n:"Bolzano",lat:46.50,lng:11.35},BS:{n:"Brescia",lat:45.54,lng:10.22},BR:{n:"Brindisi",lat:40.64,lng:17.94},CA:{n:"Cagliari",lat:39.22,lng:9.12},CL:{n:"Caltanissetta",lat:37.49,lng:14.06},CB:{n:"Campobasso",lat:41.56,lng:14.66},CE:{n:"Caserta",lat:41.07,lng:14.33},CT:{n:"Catania",lat:37.50,lng:15.09},CZ:{n:"Catanzaro",lat:38.91,lng:16.59},CH:{n:"Chieti",lat:42.35,lng:14.17},CO:{n:"Como",lat:45.81,lng:9.08},CS:{n:"Cosenza",lat:39.30,lng:16.25},CR:{n:"Cremona",lat:45.13,lng:10.02},KR:{n:"Crotone",lat:39.08,lng:17.12},CN:{n:"Cuneo",lat:44.39,lng:7.55},EN:{n:"Enna",lat:37.56,lng:14.28},FM:{n:"Fermo",lat:43.16,lng:13.72},FE:{n:"Ferrara",lat:44.84,lng:11.62},FI:{n:"Firenze",lat:43.77,lng:11.25},FG:{n:"Foggia",lat:41.46,lng:15.55},FC:{n:"Forlì-Cesena",lat:44.22,lng:12.04},FR:{n:"Frosinone",lat:41.64,lng:13.35},GE:{n:"Genova",lat:44.41,lng:8.93},GO:{n:"Gorizia",lat:45.94,lng:13.62},GR:{n:"Grosseto",lat:42.76,lng:11.11},IM:{n:"Imperia",lat:43.89,lng:8.03},IS:{n:"Isernia",lat:41.59,lng:14.23},AQ:{n:"L'Aquila",lat:42.35,lng:13.40},SP:{n:"La Spezia",lat:44.10,lng:9.82},LT:{n:"Latina",lat:41.47,lng:12.90},LE:{n:"Lecce",lat:40.35,lng:18.17},LC:{n:"Lecco",lat:45.86,lng:9.40},LI:{n:"Livorno",lat:43.55,lng:10.31},LO:{n:"Lodi",lat:45.31,lng:9.50},LU:{n:"Lucca",lat:43.84,lng:10.50},MC:{n:"Macerata",lat:43.30,lng:13.45},MN:{n:"Mantova",lat:45.16,lng:10.79},MS:{n:"Massa-Carrara",lat:44.04,lng:10.14},MT:{n:"Matera",lat:40.67,lng:16.60},ME:{n:"Messina",lat:38.19,lng:15.55},MI:{n:"Milano",lat:45.46,lng:9.19},MO:{n:"Modena",lat:44.65,lng:10.92},MB:{n:"Monza-Brianza",lat:45.59,lng:9.27},NA:{n:"Napoli",lat:40.85,lng:14.27},NO:{n:"Novara",lat:45.45,lng:8.62},NU:{n:"Nuoro",lat:40.32,lng:9.33},OR:{n:"Oristano",lat:39.90,lng:8.59},PD:{n:"Padova",lat:45.41,lng:11.88},PA:{n:"Palermo",lat:38.11,lng:13.35},PR:{n:"Parma",lat:44.80,lng:10.33},PV:{n:"Pavia",lat:45.18,lng:9.16},PG:{n:"Perugia",lat:43.11,lng:12.39},PU:{n:"Pesaro-Urbino",lat:43.91,lng:12.91},PE:{n:"Pescara",lat:42.46,lng:14.21},PC:{n:"Piacenza",lat:45.05,lng:9.69},PI:{n:"Pisa",lat:43.72,lng:10.40},PT:{n:"Pistoia",lat:43.93,lng:10.91},PN:{n:"Pordenone",lat:45.96,lng:12.66},PZ:{n:"Potenza",lat:40.64,lng:15.80},PO:{n:"Prato",lat:43.88,lng:11.10},RG:{n:"Ragusa",lat:36.93,lng:14.74},RA:{n:"Ravenna",lat:44.42,lng:12.20},RC:{n:"Reggio Calabria",lat:38.11,lng:15.65},RE:{n:"Reggio Emilia",lat:44.70,lng:10.63},RI:{n:"Rieti",lat:42.40,lng:12.86},RN:{n:"Rimini",lat:44.06,lng:12.57},RM:{n:"Roma",lat:41.90,lng:12.48},RO:{n:"Rovigo",lat:45.07,lng:11.79},SA:{n:"Salerno",lat:40.68,lng:14.76},SS:{n:"Sassari",lat:40.73,lng:8.56},SV:{n:"Savona",lat:44.31,lng:8.48},SI:{n:"Siena",lat:43.32,lng:11.33},SR:{n:"Siracusa",lat:37.07,lng:15.29},SO:{n:"Sondrio",lat:46.17,lng:9.87},SU:{n:"Sud Sardegna",lat:39.31,lng:9.11},TA:{n:"Taranto",lat:40.47,lng:17.24},TE:{n:"Teramo",lat:42.66,lng:13.70},TR:{n:"Terni",lat:42.56,lng:12.64},TO:{n:"Torino",lat:45.07,lng:7.69},TP:{n:"Trapani",lat:38.02,lng:12.52},TN:{n:"Trento",lat:46.07,lng:11.12},TV:{n:"Treviso",lat:45.67,lng:12.24},TS:{n:"Trieste",lat:45.65,lng:13.78},UD:{n:"Udine",lat:46.06,lng:13.24},VA:{n:"Varese",lat:45.82,lng:8.83},VE:{n:"Venezia",lat:45.44,lng:12.33},VB:{n:"VCO",lat:45.92,lng:8.56},VC:{n:"Vercelli",lat:45.32,lng:8.42},VR:{n:"Verona",lat:45.44,lng:10.99},VV:{n:"Vibo Valentia",lat:38.67,lng:16.10},VI:{n:"Vicenza",lat:45.55,lng:11.55},VT:{n:"Viterbo",lat:42.42,lng:12.11}};
+const PROVINCE={AG:{n:"Agrigento",lat:37.31,lng:13.58},AL:{n:"Alessandria",lat:44.91,lng:8.61},AN:{n:"Ancona",lat:43.61,lng:13.51},AO:{n:"Aosta",lat:45.74,lng:7.32},AR:{n:"Arezzo",lat:43.46,lng:11.88},AP:{n:"Ascoli Piceno",lat:42.85,lng:13.57},AT:{n:"Asti",lat:44.90,lng:8.21},AV:{n:"Avellino",lat:40.91,lng:14.79},BA:{n:"Bari",lat:41.12,lng:16.87},BT:{n:"BAT",lat:41.30,lng:16.28},BL:{n:"Belluno",lat:46.14,lng:12.22},BN:{n:"Benevento",lat:41.13,lng:14.78},BG:{n:"Bergamo",lat:45.70,lng:9.67},BI:{n:"Biella",lat:45.56,lng:8.05},BO:{n:"Bologna",lat:44.49,lng:11.34},BZ:{n:"Bolzano",lat:46.50,lng:11.35},BS:{n:"Brescia",lat:45.54,lng:10.22},BR:{n:"Brindisi",lat:40.64,lng:17.94},CA:{n:"Cagliari",lat:39.22,lng:9.12},CL:{n:"Caltanissetta",lat:37.49,lng:14.06},CB:{n:"Campobasso",lat:41.56,lng:14.66},CE:{n:"Caserta",lat:41.07,lng:14.33},CT:{n:"Catania",lat:37.50,lng:15.09},CZ:{n:"Catanzaro",lat:38.91,lng:16.59},CH:{n:"Chieti",lat:42.35,lng:14.17},CO:{n:"Como",lat:45.81,lng:9.08},CS:{n:"Cosenza",lat:39.30,lng:16.25},CR:{n:"Cremona",lat:45.13,lng:10.02},KR:{n:"Crotone",lat:39.08,lng:17.12},CN:{n:"Cuneo",lat:44.39,lng:7.55},EN:{n:"Enna",lat:37.56,lng:14.28},FM:{n:"Fermo",lat:43.16,lng:13.72},FE:{n:"Ferrara",lat:44.84,lng:11.62},FI:{n:"Firenze",lat:43.77,lng:11.25},FG:{n:"Foggia",lat:41.46,lng:15.55},FC:{n:"Forlì-Cesena",lat:44.22,lng:12.04},FR:{n:"Frosinone",lat:41.64,lng:13.35},GE:{n:"Genova",lat:44.41,lng:8.93},GO:{n:"Gorizia",lat:45.94,lng:13.62},GR:{n:"Grosseto",lat:42.76,lng:11.11},IM:{n:"Imperia",lat:43.89,lng:8.03},IS:{n:"Isernia",lat:41.59,lng:14.23},AQ:{n:"L’Aquila",lat:42.35,lng:13.40},SP:{n:"La Spezia",lat:44.10,lng:9.82},LT:{n:"Latina",lat:41.47,lng:12.90},LE:{n:"Lecce",lat:40.35,lng:18.17},LC:{n:"Lecco",lat:45.86,lng:9.40},LI:{n:"Livorno",lat:43.55,lng:10.31},LO:{n:"Lodi",lat:45.31,lng:9.50},LU:{n:"Lucca",lat:43.84,lng:10.50},MC:{n:"Macerata",lat:43.30,lng:13.45},MN:{n:"Mantova",lat:45.16,lng:10.79},MS:{n:"Massa-Carrara",lat:44.04,lng:10.14},MT:{n:"Matera",lat:40.67,lng:16.60},ME:{n:"Messina",lat:38.19,lng:15.55},MI:{n:"Milano",lat:45.46,lng:9.19},MO:{n:"Modena",lat:44.65,lng:10.92},MB:{n:"Monza-Brianza",lat:45.59,lng:9.27},NA:{n:"Napoli",lat:40.85,lng:14.27},NO:{n:"Novara",lat:45.45,lng:8.62},NU:{n:"Nuoro",lat:40.32,lng:9.33},OR:{n:"Oristano",lat:39.90,lng:8.59},PD:{n:"Padova",lat:45.41,lng:11.88},PA:{n:"Palermo",lat:38.11,lng:13.35},PR:{n:"Parma",lat:44.80,lng:10.33},PV:{n:"Pavia",lat:45.18,lng:9.16},PG:{n:"Perugia",lat:43.11,lng:12.39},PU:{n:"Pesaro-Urbino",lat:43.91,lng:12.91},PE:{n:"Pescara",lat:42.46,lng:14.21},PC:{n:"Piacenza",lat:45.05,lng:9.69},PI:{n:"Pisa",lat:43.72,lng:10.40},PT:{n:"Pistoia",lat:43.93,lng:10.91},PN:{n:"Pordenone",lat:45.96,lng:12.66},PZ:{n:"Potenza",lat:40.64,lng:15.80},PO:{n:"Prato",lat:43.88,lng:11.10},RG:{n:"Ragusa",lat:36.93,lng:14.74},RA:{n:"Ravenna",lat:44.42,lng:12.20},RC:{n:"Reggio Calabria",lat:38.11,lng:15.65},RE:{n:"Reggio Emilia",lat:44.70,lng:10.63},RI:{n:"Rieti",lat:42.40,lng:12.86},RN:{n:"Rimini",lat:44.06,lng:12.57},RM:{n:"Roma",lat:41.90,lng:12.48},RO:{n:"Rovigo",lat:45.07,lng:11.79},SA:{n:"Salerno",lat:40.68,lng:14.76},SS:{n:"Sassari",lat:40.73,lng:8.56},SV:{n:"Savona",lat:44.31,lng:8.48},SI:{n:"Siena",lat:43.32,lng:11.33},SR:{n:"Siracusa",lat:37.07,lng:15.29},SO:{n:"Sondrio",lat:46.17,lng:9.87},SU:{n:"Sud Sardegna",lat:39.31,lng:9.11},TA:{n:"Taranto",lat:40.47,lng:17.24},TE:{n:"Teramo",lat:42.66,lng:13.70},TR:{n:"Terni",lat:42.56,lng:12.64},TO:{n:"Torino",lat:45.07,lng:7.69},TP:{n:"Trapani",lat:38.02,lng:12.52},TN:{n:"Trento",lat:46.07,lng:11.12},TV:{n:"Treviso",lat:45.67,lng:12.24},TS:{n:"Trieste",lat:45.65,lng:13.78},UD:{n:"Udine",lat:46.06,lng:13.24},VA:{n:"Varese",lat:45.82,lng:8.83},VE:{n:"Venezia",lat:45.44,lng:12.33},VB:{n:"VCO",lat:45.92,lng:8.56},VC:{n:"Vercelli",lat:45.32,lng:8.42},VR:{n:"Verona",lat:45.44,lng:10.99},VV:{n:"Vibo Valentia",lat:38.67,lng:16.10},VI:{n:"Vicenza",lat:45.55,lng:11.55},VT:{n:"Viterbo",lat:42.42,lng:12.11}};
 
 const TAG_COLORS={'medicale-BA':'#f97316','medicale-LE':'#3b82f6','medicale-FG':'#a855f7','medicale-TA':'#22c55e','medicale-BR':'#ec4899','medicale-BT':'#eab308','podologia':'#06b6d4','laboratorio':'#fb923c','medico':'#60a5fa','cliente':'#22c55e','prospect':'#3b82f6','contattato':'#f59e0b','offerta':'#a855f7','trattativa':'#06b6d4','inattivo':'#94a3b8','cancellato':'#ef4444','sanitarie':'#22d3ee','pedicure':'#e879f9','altre':'#94a3b8','basilicata':'#8b5cf6','molise':'#14b8a6','medicale':'#f97316','estetiste':'#ec4899','google':'#4b5563'};
 const tagColor=t=>TAG_COLORS[t]||'#6b7280';
@@ -804,6 +828,7 @@ function switchTab(tab){
   if(tab==='export') renderExportStats();
   if(tab==='pipeline') renderPipeline();
   if(tab==='attivita') loadAttivita().then(()=>renderAttivita());
+  if(tab==='lead') loadLead().then(()=>renderLead());
   if(tab==='qualita') renderQualita();
   if(tab==='agenda') loadAttivita().then(()=>renderAgenda());
   if(tab==='kpi') loadAttivita().then(()=>renderKPI());
@@ -818,6 +843,7 @@ function switchTab(tab){
 function todayStr(){ return new Date().toISOString().split('T')[0]; }
 function daysDiff(d){ if(!d) return null; return Math.ceil((new Date(d)-new Date(todayStr()))/(864e5)); }
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escJS(s){ return String(s||'').replace(/'/g,"\\'"); }
 function download(name,uri){ const a=document.createElement('a');a.href=uri;a.download=name;a.click(); }
 function openCalFromForm(){
   const data = document.getElementById('f-prossimo').value;
@@ -3531,6 +3557,217 @@ function renderQualita(){
       +'<div style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:5px">'+rows+'</div>'
       +'</div>';
   }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+// LEAD SCOUTING
+// ══════════════════════════════════════════════════════════════
+let leadData = [];
+
+async function loadLead(){
+  if(!useCloud){ leadData=[]; return; }
+  try {
+    const {data, error} = await supabaseClient
+      .from('lead_scouting')
+      .select('*')
+      .order('created_at', {ascending:false});
+    if(error){ console.error('loadLead:', error); return; }
+    leadData = data||[];
+    // Aggiorna contatore tab
+    const nuovi = leadData.filter(l=>l.stato==='nuovo').length;
+    const badge = document.getElementById('tab-count-lead');
+    if(badge){ badge.textContent=nuovi; badge.style.display=nuovi?'inline':'none'; }
+  } catch(e){ console.error(e); }
+}
+
+function renderLead(){
+  const el = document.getElementById('lead-list');
+  if(!el) return;
+
+  const stato  = document.getElementById('lead-filter-stato')?.value||'';
+  const fonte  = document.getElementById('lead-filter-fonte')?.value||'';
+  const prov   = document.getElementById('lead-filter-prov')?.value||'';
+
+  // Popola filtro province
+  const selProv = document.getElementById('lead-filter-prov');
+  if(selProv){
+    const cur = selProv.value;
+    const provs = [...new Set(leadData.map(l=>l.provincia).filter(Boolean))].sort();
+    selProv.innerHTML = '<option value="">Tutte le province</option>'
+      + provs.map(p=>'<option value="'+p+'" '+(p===cur?'selected':'')+'>'+p+'</option>').join('');
+  }
+
+  let list = [...leadData];
+  if(stato) list = list.filter(l=>l.stato===stato);
+  if(fonte) list = list.filter(l=>l.fonte===fonte);
+  if(prov)  list = list.filter(l=>l.provincia===prov);
+
+  // Aggiorna contatore
+  const counter = document.getElementById('lead-counter');
+  if(counter) counter.textContent = list.length+' lead'+(list.length!==leadData.length?' di '+leadData.length:'');
+
+  if(!list.length){
+    el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted)">'
+      +'<div style="font-size:36px;margin-bottom:12px">🎯</div>'
+      +'<div style="font-weight:700;margin-bottom:6px">Nessun lead ancora</div>'
+      +'<div style="font-size:13px">I lead arriveranno automaticamente da PreventivoPro o puoi aggiungerli manualmente</div>'
+      +'</div>';
+    return;
+  }
+
+  let html = '';
+  for(const l of list){
+    const fonteClass = (l.fonte||'manuale').replace(/-/g,'_');
+    const fonteLabel = l.fonte==='preventivopro'?'PreventivoPro':l.fonte==='google_maps'?'Google Maps':'Manuale';
+    const statoColor = {nuovo:'#3b82f6',contattato:'#f59e0b',importato:'#22c55e',ignorato:'#ef4444'}[l.stato]||'#94a3b8';
+    const statoLabel = {nuovo:'Nuovo',contattato:'Contattato',importato:'Importato',ignorato:'Ignorato'}[l.stato]||l.stato;
+
+    html += '<div class="lead-card '+(l.stato||'nuovo')+'">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">'
+      +'<span style="font-weight:700;font-size:14px">'+esc(l.ragione_sociale||'Sconosciuto')+'</span>'
+      +'<span class="lead-fonte '+fonteClass+'">'+fonteLabel+'</span>'
+      +'<span style="background:'+statoColor+'22;color:'+statoColor+';border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700">'+statoLabel+'</span>'
+      +(l.categoria?'<span style="background:var(--surface);border-radius:20px;padding:2px 8px;font-size:10px;color:var(--muted)">'+esc(l.categoria)+'</span>':'')
+      +'</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin-bottom:4px">'
+      +(l.telefono?'<span>📞 '+esc(l.telefono)+'</span>':'')
+      +(l.cellulare?'<span>📱 '+esc(l.cellulare)+'</span>':'')
+      +(l.email?'<span>✉ '+esc(l.email)+'</span>':'')
+      +(l.provincia?'<span>📍 '+(escJS(l.comune||''))+' ('+escJS(l.provincia||'')+')</span>':'')
+      +'</div>'
+      +(l.interesse?'<div style="font-size:12px;background:var(--surface);border-radius:6px;padding:6px 10px;margin-top:4px;color:var(--text2)">🎯 '+esc(l.interesse)+'</div>':'')
+      +(l.note?'<div style="font-size:12px;color:var(--muted);margin-top:4px">'+esc(l.note)+'</div>':'')
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">'
+      +(l.stato!=='importato'?'<button onclick="importaLeadInCRM(''+l.id+'')" style="background:rgba(34,197,94,.12);color:var(--success);border:1px solid rgba(34,197,94,.3);border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:700">➕ Importa</button>':'')
+      +(l.cellulare?'<a href="https://wa.me/'+waNum(l.cellulare||'')+'" target="_blank" style="background:rgba(37,211,102,.12);color:#25d366;border:1px solid rgba(37,211,102,.3);border-radius:7px;padding:5px 10px;font-size:11px;text-decoration:none;text-align:center;font-weight:700">WA</a>':'')
+      +(l.email?'<a href="mailto:'+esc(l.email)+'" style="background:rgba(249,115,22,.1);color:var(--accent);border:1px solid rgba(249,115,22,.3);border-radius:7px;padding:5px 10px;font-size:11px;text-decoration:none;text-align:center">✉</a>':'')
+      +'<select onchange="aggiornaStatoLead(''+l.id+'',this.value);this.value=''" style="font-size:10px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">'
+      +'<option value="">Stato...</option>'
+      +'<option value="nuovo">🔵 Nuovo</option>'
+      +'<option value="contattato">🟡 Contattato</option>'
+      +'<option value="ignorato">🔴 Ignora</option>'
+      +'</select>'
+      +'</div>'
+      +'</div>'
+      +'<div style="font-size:10px;color:var(--muted);margin-top:8px;font-family:'DM Mono',monospace">'
+      +(l.created_at?new Date(l.created_at).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'')
+      +(l.sito_web?' · <a href="'+esc(l.sito_web)+'" target="_blank" style="color:var(--accent)">🌐 Sito web</a>':'')
+      +'</div>'
+      +'</div>';
+  }
+  el.innerHTML = html;
+}
+
+async function aggiornaStatoLead(id, stato){
+  if(!stato) return;
+  const {error} = await supabaseClient.from('lead_scouting').update({stato}).eq('id',id);
+  if(error){ showToast('Errore aggiornamento stato','danger'); return; }
+  const lead = leadData.find(l=>l.id===id);
+  if(lead) lead.stato = stato;
+  renderLead();
+  showToast('✅ Stato aggiornato','success');
+}
+
+async function importaLeadInCRM(id){
+  const l = leadData.find(x=>x.id===id);
+  if(!l){ showToast('Lead non trovato','warn'); return; }
+
+  // Controlla duplicati nel CRM per email o telefono
+  const dup = contacts.find(c=>
+    (l.email && c.email === l.email) ||
+    (l.telefono && c.telefono === l.telefono) ||
+    (l.cellulare && c.cellulare === l.cellulare)
+  );
+  if(dup){
+    if(!confirm('Esiste già un contatto simile: '+dup.nome+'. Importare comunque?')) return;
+  }
+
+  // Crea contatto
+  const newContact = {
+    id: Date.now(),
+    nome: l.ragione_sociale||'',
+    azienda: '',
+    indirizzo: l.indirizzo||'',
+    comune: l.comune||'',
+    provincia: l.provincia||'BA',
+    telefono: l.telefono||'',
+    cellulare: l.cellulare||'',
+    email: l.email||'',
+    note: (l.note||'')+(l.interesse?' Interesse: '+l.interesse:''),
+    tags: ['prospect', 'lead'],
+    fonte: l.fonte||'manuale',
+    ultimoContatto:'', prossimoContatto:'',
+    reminderAttivo:false, lat:0, lng:0,
+  };
+
+  contacts.push(newContact);
+  await dbUpsert(newContact);
+
+  // Aggiorna stato lead
+  await aggiornaStatoLead(id, 'importato');
+  const lead = leadData.find(x=>x.id===id);
+  if(lead) lead.importato_in_crm = true;
+
+  // Log
+  if(useCloud) await supabaseClient.from('automazioni_log').insert({
+    tipo:'lead_importato', lead_id:id,
+    contact_id: newContact.id, esito:'ok'
+  }).catch(()=>{});
+
+  updateAll();
+  showToast('✅ Lead importato come contatto!','success');
+}
+
+function apriNuovoLead(){
+  document.getElementById('modal-title').textContent = '🎯 Nuovo Lead';
+  document.getElementById('modal-content').innerHTML = `
+    <div class="grid-2" style="gap:12px">
+      <div><label>Nome / Ragione sociale *</label><input id="nl-nome" placeholder="es. Studio Rossi Podologia"></div>
+      <div><label>Categoria</label><input id="nl-cat" placeholder="es. podologo, estetica..."></div>
+      <div><label>Telefono</label><input id="nl-tel" placeholder="0xx xxxxxxx"></div>
+      <div><label>Cellulare</label><input id="nl-cell" placeholder="3xx xxxxxxx"></div>
+      <div class="span-2"><label>Email</label><input id="nl-email" type="email" placeholder="email@studio.it"></div>
+      <div><label>Provincia</label><select id="nl-prov"></select></div>
+      <div><label>Comune</label><input id="nl-comune" placeholder="es. Bari"></div>
+      <div class="span-2"><label>Sito web</label><input id="nl-web" placeholder="https://..."></div>
+      <div class="span-2"><label>Interesse / Note</label><textarea id="nl-note" rows="2" placeholder="Prodotti di interesse, note..."></textarea></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button class="btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn-primary" onclick="salvaLeadManuale()">💾 Salva Lead</button>
+    </div>`;
+  populateProvSelect('nl-prov','BA');
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+async function salvaLeadManuale(){
+  const nome = document.getElementById('nl-nome')?.value.trim();
+  if(!nome){ showToast('Inserisci il nome','warn'); return; }
+  const lead = {
+    ragione_sociale: nome,
+    categoria: document.getElementById('nl-cat')?.value.trim()||null,
+    telefono:  document.getElementById('nl-tel')?.value.trim()||null,
+    cellulare: document.getElementById('nl-cell')?.value.trim()||null,
+    email:     document.getElementById('nl-email')?.value.trim()||null,
+    provincia: document.getElementById('nl-prov')?.value||null,
+    comune:    document.getElementById('nl-comune')?.value.trim()||null,
+    sito_web:  document.getElementById('nl-web')?.value.trim()||null,
+    note:      document.getElementById('nl-note')?.value.trim()||null,
+    fonte: 'manuale', stato: 'nuovo',
+  };
+  if(useCloud){
+    const {data,error} = await supabaseClient.from('lead_scouting').insert(lead).select().single();
+    if(error){ showToast('Errore: '+error.message,'danger'); return; }
+    leadData.unshift(data);
+  } else {
+    leadData.unshift({...lead, id:Date.now(), created_at:new Date().toISOString()});
+  }
+  closeModal();
+  renderLead();
+  showToast('✅ Lead salvato!','success');
 }
 
 </script>
