@@ -260,6 +260,7 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
     <button class="tab-btn" onclick="switchTab('kpi')" id="tab-kpi">📈 KPI</button>
     <button class="tab-btn" onclick="switchTab('email-gruppo')" id="tab-email-gruppo">✉ Email Gruppo</button>
     <button class="tab-btn" onclick="switchTab('wa-gruppo')" id="tab-wa-gruppo">💬 WA Gruppo</button>
+    <button class="tab-btn" onclick="switchTab('qualita')" id="tab-qualita">🔍 Qualità</button>
     <button class="tab-btn archivio-tab" onclick="switchTab('archivio')" id="tab-archivio">🗑 Archivio<span class='tab-count' id='tab-count-archivio' style='display:none;background:rgba(239,68,68,.7)'>0</span></button>
   </div>
 
@@ -587,6 +588,16 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
     </div>
 
     <!-- ARCHIVIO CANCELLATI -->
+    <!-- QUALITÀ CONTATTI -->
+    <div class="panel" id="panel-qualita">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+        <div style="font-weight:800;font-size:18px">🔍 Qualità Contatti</div>
+        <button onclick="renderQualita()" class="btn-secondary" style="font-size:12px">🔄 Aggiorna</button>
+      </div>
+      <div id="qualita-stats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px"></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px" id="qualita-sections"></div>
+    </div>
+
     <div class="panel" id="panel-archivio">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div>
@@ -790,6 +801,7 @@ function switchTab(tab){
   if(tab==='export') renderExportStats();
   if(tab==='pipeline') renderPipeline();
   if(tab==='attivita') loadAttivita().then(()=>renderAttivita());
+  if(tab==='qualita') renderQualita();
   if(tab==='agenda') loadAttivita().then(()=>renderAgenda());
   if(tab==='kpi') loadAttivita().then(()=>renderKPI());
   if(tab==='archivio') renderArchivio();
@@ -3275,6 +3287,108 @@ function selezionaTuttiLista(tipo){
     updateWABadge(); renderWAGruppo();
     showToast('✅ Selezionati '+waSelezionati.size+' contatti della lista','success');
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// QUALITÀ CONTATTI
+// ══════════════════════════════════════════════════════════════
+function renderQualita(){
+  const statsEl    = document.getElementById('qualita-stats');
+  const sectionsEl = document.getElementById('qualita-sections');
+  if(!statsEl||!sectionsEl) return;
+
+  const attivi = contacts.filter(c=>!(c.tags||[]).includes('cancellato'));
+  const totale = attivi.length;
+
+  // Calcola categorie
+  const noEmail    = attivi.filter(c=>!c.email);
+  const noCellulare= attivi.filter(c=>!c.cellulare);
+  const noTelefono = attivi.filter(c=>!c.telefono && !c.cellulare);
+  const noComune   = attivi.filter(c=>!c.comune);
+  const noCoords   = attivi.filter(c=>!c.lat || !c.lng || c.lat===0);
+
+  // Contatti non in nessuna lista
+  const tuttiInListe = new Set([
+    ...listeDist.email.flatMap(l=>l.contatti),
+    ...listeDist.wa.flatMap(l=>l.contatti)
+  ]);
+  const nonInListe = attivi.filter(c=>!tuttiInListe.has(c.id));
+
+  // Stats globali
+  const pctEmail = Math.round((attivi.filter(c=>c.email).length/totale)*100);
+  const pctCell  = Math.round((attivi.filter(c=>c.cellulare).length/totale)*100);
+  const pctCoord = Math.round((attivi.filter(c=>c.lat&&c.lng&&c.lat!==0).length/totale)*100);
+  const pctListe = Math.round((tuttiInListe.size/totale)*100);
+
+  statsEl.innerHTML = [
+    ['✉ Con Email',    pctEmail+'%', attivi.filter(c=>c.email).length+'/'+totale,    '#3b82f6'],
+    ['📱 Con Cellulare',pctCell+'%',  attivi.filter(c=>c.cellulare).length+'/'+totale,'#25d366'],
+    ['📍 Con Coordinate',pctCoord+'%',attivi.filter(c=>c.lat&&c.lat!==0).length+'/'+totale,'#f59e0b'],
+    ['📋 In Liste',     pctListe+'%', tuttiInListe.size+'/'+totale,                   '#a855f7'],
+  ].map(([lbl,pct,cnt,col])=>`
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 18px;flex:1;min-width:160px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${lbl}</div>
+      <div style="font-size:24px;font-weight:800;color:${col}">${pct}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">${cnt} contatti</div>
+      <div style="margin-top:8px;background:var(--surface);border-radius:4px;height:4px;overflow:hidden">
+        <div style="height:100%;background:${col};width:${pct};transition:width .5s"></div>
+      </div>
+    </div>`).join('');
+
+  // Sezioni dettaglio
+  const sections = [
+    { title:'❌ Senza Email', color:'#ef4444', list: noEmail,
+      desc: 'Non raggiungibili via email',
+      action: id => `<a href="javascript:editContact(${id})" style="font-size:10px;color:var(--accent)">✏️ Modifica</a>` },
+    { title:'❌ Senza Cellulare', color:'#f59e0b', list: noCellulare,
+      desc: 'Non contattabili su WhatsApp',
+      action: id => `<a href="javascript:editContact(${id})" style="font-size:10px;color:var(--accent)">✏️ Modifica</a>` },
+    { title:'⚠️ Senza Telefono né Cellulare', color:'#ef4444', list: noTelefono,
+      desc: 'Nessun numero di contatto',
+      action: id => `<a href="javascript:editContact(${id})" style="font-size:10px;color:var(--accent)">✏️ Modifica</a>` },
+    { title:'📍 Senza Coordinate', color:'#f59e0b', list: noCoords,
+      desc: 'Non visibili sulla mappa',
+      action: id => `<a href="javascript:editContact(${id})" style="font-size:10px;color:var(--accent)">✏️ Modifica</a>` },
+    { title:'🏘 Senza Comune', color:'#94a3b8', list: noComune,
+      desc: 'Geocodifica imprecisa',
+      action: id => `<a href="javascript:editContact(${id})" style="font-size:10px;color:var(--accent)">✏️ Modifica</a>` },
+    { title:'📋 Non in Nessuna Lista', color:'#a855f7', list: nonInListe,
+      desc: 'Non inclusi in liste email/WA',
+      action: id => '' },
+  ];
+
+  sectionsEl.innerHTML = sections.map(s=>{
+    if(!s.list.length) return `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-weight:700;font-size:14px">${s.title}</span>
+          <span style="background:rgba(34,197,94,.15);color:var(--success);border-radius:20px;padding:2px 8px;font-size:11px">✅ Completo</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted)">${s.desc}</div>
+      </div>`;
+
+    return `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-weight:700;font-size:14px">${s.title}</span>
+            <span style="background:${s.color}22;color:${s.color};border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700">${s.list.length}</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted)">${s.desc}</div>
+        </div>
+        <div style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:5px">
+          ${s.list.slice(0,50).map(c=>`
+            <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface);border-radius:7px;padding:7px 10px;gap:8px">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.nome)}</div>
+                <div style="font-size:10px;color:var(--muted)">${c.comune||PROVINCE[c.provincia]?.n||c.provincia} (${c.provincia})</div>
+              </div>
+              <button onclick="editContact(${c.id})" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;color:var(--muted);flex-shrink:0">✏️</button>
+            </div>`).join('')}
+          ${s.list.length>50?`<div style="font-size:11px;color:var(--muted);text-align:center;padding:6px">...e altri ${s.list.length-50}</div>`:''}
+        </div>
+      </div>`;
+  }).join('');
 }
 
 </script>
