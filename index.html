@@ -260,7 +260,6 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
     <button class="tab-btn" onclick="switchTab('kpi')" id="tab-kpi">📈 KPI</button>
     <button class="tab-btn" onclick="switchTab('email-gruppo')" id="tab-email-gruppo">✉ Email Gruppo</button>
     <button class="tab-btn" onclick="switchTab('wa-gruppo')" id="tab-wa-gruppo">💬 WA Gruppo</button>
-    <button class="tab-btn" onclick="switchTab('qualita')" id="tab-qualita">🔍 Qualità</button>
     <button class="tab-btn archivio-tab" onclick="switchTab('archivio')" id="tab-archivio">🗑 Archivio<span class='tab-count' id='tab-count-archivio' style='display:none;background:rgba(239,68,68,.7)'>0</span></button>
   </div>
 
@@ -588,16 +587,6 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
     </div>
 
     <!-- ARCHIVIO CANCELLATI -->
-    <!-- QUALITÀ CONTATTI -->
-    <div class="panel" id="panel-qualita">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
-        <div style="font-weight:800;font-size:18px">🔍 Qualità Contatti</div>
-        <button onclick="renderQualita()" class="btn-secondary" style="font-size:12px">🔄 Aggiorna</button>
-      </div>
-      <div id="qualita-stats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px"></div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px" id="qualita-sections"></div>
-    </div>
-
     <div class="panel" id="panel-archivio">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div>
@@ -801,7 +790,6 @@ function switchTab(tab){
   if(tab==='export') renderExportStats();
   if(tab==='pipeline') renderPipeline();
   if(tab==='attivita') loadAttivita().then(()=>renderAttivita());
-  if(tab==='qualita') renderQualita();
   if(tab==='agenda') loadAttivita().then(()=>renderAgenda());
   if(tab==='kpi') loadAttivita().then(()=>renderKPI());
   if(tab==='archivio') renderArchivio();
@@ -1087,10 +1075,15 @@ function openModal(contact){
           ${['prospect','contattato','offerta','trattativa','cliente','inattivo','cancellato','sanitarie','pedicure','altre','podologia','laboratorio','medico'].map(t=>`<span onclick="toggleQuickTag('${t}')" style="cursor:pointer;background:${tagColor(t)}18;color:${tagColor(t)};border-radius:20px;padding:2px 10px;font-size:10px;border:1px solid ${tagColor(t)}33">${t}</span>`).join('')}
         </div>
       </div>
+      ${editingId ? `<div class="span-2">
+        <label>📋 Liste di distribuzione</label>
+        <div id="modal-liste-display" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"></div>
+      </div>` : ''}
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-top:20px">
-      <div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${editingId?`<button onclick="closeModal();openNewAttivita(${editingId})" style="background:rgba(34,197,94,.12);color:var(--success);border:1px solid rgba(34,197,94,.3);padding:10px 16px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700">📝 Log attività</button>`:''}
+        ${editingId&&contact?.cellulare?`<button onclick="verificaWAContatto(${editingId})" style="background:rgba(37,211,102,.12);color:#25d366;border:1px solid rgba(37,211,102,.3);padding:10px 16px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700">📱 Verifica WA</button>`:''}
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn-secondary" onclick="closeModal()">Annulla</button>
@@ -1099,6 +1092,7 @@ function openModal(contact){
     </div>`;
   renderTagsInForm();
   populateProvSelect('form-prov',contact?.provincia||'BA');
+  if(contact?.id) renderListeInModal(contact.id);
   // Timeline storico attività per il contatto
   if(contact?.id){
     const cAtt=attivita.filter(a=>String(a.contatto_id)===String(contact.id)).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
@@ -3289,106 +3283,150 @@ function selezionaTuttiLista(tipo){
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-// QUALITÀ CONTATTI
-// ══════════════════════════════════════════════════════════════
-function renderQualita(){
-  const statsEl    = document.getElementById('qualita-stats');
-  const sectionsEl = document.getElementById('qualita-sections');
-  if(!statsEl||!sectionsEl) return;
-
-  const attivi = contacts.filter(c=>!(c.tags||[]).includes('cancellato'));
-  const totale = attivi.length;
-
-  // Calcola categorie
-  const noEmail    = attivi.filter(c=>!c.email);
-  const noCellulare= attivi.filter(c=>!c.cellulare);
-  const noTelefono = attivi.filter(c=>!c.telefono && !c.cellulare);
-  const noComune   = attivi.filter(c=>!c.comune);
-  const noCoords   = attivi.filter(c=>!c.lat || !c.lng || c.lat===0);
-
-  // Contatti non in nessuna lista
-  const tuttiInListe = new Set([
-    ...listeDist.email.flatMap(l=>l.contatti),
-    ...listeDist.wa.flatMap(l=>l.contatti)
-  ]);
-  const nonInListe = attivi.filter(c=>!tuttiInListe.has(c.id));
-
-  // Stats globali
-  const pctEmail = Math.round((attivi.filter(c=>c.email).length/totale)*100);
-  const pctCell  = Math.round((attivi.filter(c=>c.cellulare).length/totale)*100);
-  const pctCoord = Math.round((attivi.filter(c=>c.lat&&c.lng&&c.lat!==0).length/totale)*100);
-  const pctListe = Math.round((tuttiInListe.size/totale)*100);
-
-  statsEl.innerHTML = [
-    ['✉ Con Email',    pctEmail+'%', attivi.filter(c=>c.email).length+'/'+totale,    '#3b82f6'],
-    ['📱 Con Cellulare',pctCell+'%',  attivi.filter(c=>c.cellulare).length+'/'+totale,'#25d366'],
-    ['📍 Con Coordinate',pctCoord+'%',attivi.filter(c=>c.lat&&c.lat!==0).length+'/'+totale,'#f59e0b'],
-    ['📋 In Liste',     pctListe+'%', tuttiInListe.size+'/'+totale,                   '#a855f7'],
-  ].map(([lbl,pct,cnt,col])=>`
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 18px;flex:1;min-width:160px">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${lbl}</div>
-      <div style="font-size:24px;font-weight:800;color:${col}">${pct}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px">${cnt} contatti</div>
-      <div style="margin-top:8px;background:var(--surface);border-radius:4px;height:4px;overflow:hidden">
-        <div style="height:100%;background:${col};width:${pct};transition:width .5s"></div>
-      </div>
-    </div>`).join('');
-
-  // Sezioni dettaglio
-  const sections = [
-    { title:'❌ Senza Email', color:'#ef4444', list: noEmail,
-      desc: 'Non raggiungibili via email',
-      action: id => `<a href="javascript:editContact(${id})" style="font-size:10px;color:var(--accent)">✏️ Modifica</a>` },
-    { title:'❌ Senza Cellulare', color:'#f59e0b', list: noCellulare,
-      desc: 'Non contattabili su WhatsApp',
-      action: id => `<a href="javascript:editContact(${id})" style="font-size:10px;color:var(--accent)">✏️ Modifica</a>` },
-    { title:'⚠️ Senza Telefono né Cellulare', color:'#ef4444', list: noTelefono,
-      desc: 'Nessun numero di contatto',
-      action: id => `<a href="javascript:editContact(${id})" style="font-size:10px;color:var(--accent)">✏️ Modifica</a>` },
-    { title:'📍 Senza Coordinate', color:'#f59e0b', list: noCoords,
-      desc: 'Non visibili sulla mappa',
-      action: id => `<a href="javascript:editContact(${id})" style="font-size:10px;color:var(--accent)">✏️ Modifica</a>` },
-    { title:'🏘 Senza Comune', color:'#94a3b8', list: noComune,
-      desc: 'Geocodifica imprecisa',
-      action: id => `<a href="javascript:editContact(${id})" style="font-size:10px;color:var(--accent)">✏️ Modifica</a>` },
-    { title:'📋 Non in Nessuna Lista', color:'#a855f7', list: nonInListe,
-      desc: 'Non inclusi in liste email/WA',
-      action: id => '' },
+// ── Liste nella scheda contatto ──────────────────────────────
+function renderListeInModal(contactId){
+  const el = document.getElementById('modal-liste-display');
+  if(!el) return;
+  const tutti = [
+    ...listeDist.email.map(l=>({...l, tipo:'email'})),
+    ...listeDist.wa.map(l=>({...l, tipo:'wa'}))
   ];
+  if(!tutti.length){ el.innerHTML='<span style="font-size:12px;color:var(--muted)">Nessuna lista creata</span>'; return; }
 
-  sectionsEl.innerHTML = sections.map(s=>{
-    if(!s.list.length) return `
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <span style="font-weight:700;font-size:14px">${s.title}</span>
-          <span style="background:rgba(34,197,94,.15);color:var(--success);border-radius:20px;padding:2px 8px;font-size:11px">✅ Completo</span>
-        </div>
-        <div style="font-size:12px;color:var(--muted)">${s.desc}</div>
-      </div>`;
-
-    return `
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
-          <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-weight:700;font-size:14px">${s.title}</span>
-            <span style="background:${s.color}22;color:${s.color};border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700">${s.list.length}</span>
-          </div>
-          <div style="font-size:11px;color:var(--muted)">${s.desc}</div>
-        </div>
-        <div style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:5px">
-          ${s.list.slice(0,50).map(c=>`
-            <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface);border-radius:7px;padding:7px 10px;gap:8px">
-              <div style="flex:1;min-width:0">
-                <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.nome)}</div>
-                <div style="font-size:10px;color:var(--muted)">${c.comune||PROVINCE[c.provincia]?.n||c.provincia} (${c.provincia})</div>
-              </div>
-              <button onclick="editContact(${c.id})" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;color:var(--muted);flex-shrink:0">✏️</button>
-            </div>`).join('')}
-          ${s.list.length>50?`<div style="font-size:11px;color:var(--muted);text-align:center;padding:6px">...e altri ${s.list.length-50}</div>`:''}
-        </div>
-      </div>`;
+  el.innerHTML = tutti.map(l=>{
+    const inLista = l.contatti.includes(contactId);
+    const piena   = !inLista && l.contatti.length >= l.limite;
+    const col     = l.tipo==='email' ? '#3b82f6' : '#25d366';
+    const icon    = l.tipo==='email' ? '✉' : '💬';
+    return `<span onclick="${piena?'showToast('Lista piena','warn')':'toggleContattoInListaModal('+l.id+',''+l.tipo+'','+contactId+')'}"
+      style="cursor:${piena?'not-allowed':'pointer'};display:inline-flex;align-items:center;gap:5px;
+      background:${inLista?col+'22':'var(--surface)'};
+      color:${inLista?col:'var(--muted)'};
+      border:1px solid ${inLista?col+'55':'var(--border)'};
+      border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;
+      opacity:${piena?'.5':'1'}">
+      ${icon} ${esc(l.nome)}
+      ${inLista?'✓':piena?'(piena)':'＋'}
+      <span style="font-size:10px;opacity:.7">${l.contatti.length}/${l.limite}</span>
+    </span>`;
   }).join('');
+}
+
+function toggleContattoInListaModal(listaId, tipo, contactId){
+  const lista = listeDist[tipo].find(l=>l.id===listaId);
+  if(!lista) return;
+  if(lista.contatti.includes(contactId)){
+    lista.contatti = lista.contatti.filter(id=>id!==contactId);
+    showToast('Rimosso dalla lista "'+lista.nome+'"','info');
+  } else {
+    if(lista.contatti.length >= lista.limite){ showToast('Lista piena!','warn'); return; }
+    lista.contatti.push(contactId);
+    showToast('Aggiunto alla lista "'+lista.nome+'"','success');
+  }
+  saveListeDist();
+  renderListeInModal(contactId);
+  renderListeSidebar(tipo);
+}
+
+// ── Verifica WA dal contatto ─────────────────────────────────
+function verificaWAContatto(contactId){
+  const c = contacts.find(x=>x.id===contactId);
+  if(!c||!c.cellulare){ showToast('Nessun cellulare nel contatto','warn'); return; }
+  const num = waNum(c.cellulare);
+  const url = 'https://wa.me/'+num;
+  window.open(url,'_blank');
+  // Chiedi conferma dopo apertura
+  setTimeout(()=>{
+    document.getElementById('modal-title').textContent = '📱 Verifica WhatsApp';
+    document.getElementById('modal-content').innerHTML = `
+      <div style="text-align:center;padding:16px 0">
+        <div style="font-size:32px;margin-bottom:10px">📱</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px">${esc(c.nome)}</div>
+        <div style="color:#25d366;margin-bottom:20px">${esc(c.cellulare)}</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:20px">La chat WhatsApp si è aperta correttamente?</div>
+        <div style="display:flex;gap:10px;justify-content:center">
+          <button onclick="marcaWA(${contactId},'si')" style="background:rgba(37,211,102,.15);color:#25d366;border:1px solid rgba(37,211,102,.4);padding:10px 24px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:700">✅ Sì, è su WA</button>
+          <button onclick="marcaWA(${contactId},'no')" style="background:rgba(239,68,68,.1);color:var(--danger);border:1px solid rgba(239,68,68,.3);padding:10px 24px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:700">❌ No, non trovato</button>
+        </div>
+        <button onclick="closeModal()" style="margin-top:14px;background:transparent;border:none;color:var(--muted);font-size:12px;cursor:pointer">Salta</button>
+      </div>`;
+    document.getElementById('modal-overlay').classList.add('open');
+  }, 1200);
+}
+
+async function marcaWA(contactId, esito){
+  const c = contacts.find(x=>x.id===contactId);
+  if(!c) return;
+  if(esito==='si'){
+    if(!(c.tags||[]).includes('wa-ok')){
+      c.tags = [...(c.tags||[]).filter(t=>t!=='no-wa'), 'wa-ok'];
+      await dbUpsert(c); renderContacts();
+      showToast('✅ Marcato come attivo su WhatsApp','success');
+    }
+  } else {
+    if(!(c.tags||[]).includes('no-wa')){
+      c.tags = [...(c.tags||[]).filter(t=>t!=='wa-ok'), 'no-wa'];
+      await dbUpsert(c); renderContacts();
+      showToast('❌ Marcato come non su WhatsApp','warn');
+    }
+  }
+  closeModal();
+}
+
+// ── Verifica WA da Qualità ────────────────────────────────────
+function avviaVerificaWAMassiva(){
+  const daVerificare = contacts.filter(c=>c.cellulare && !(c.tags||[]).includes('cancellato') && !(c.tags||[]).includes('wa-ok') && !(c.tags||[]).includes('no-wa'));
+  if(!daVerificare.length){ showToast('Tutti i contatti con cellulare sono già stati verificati!','success'); return; }
+  // Usa il flusso sequenziale esistente
+  _waLista = daVerificare;
+  _waIndex = 0;
+  _waMsg = '';
+  mostraVerificaWASeq();
+}
+
+function mostraVerificaWASeq(){
+  if(_waIndex >= _waLista.length){
+    closeModal();
+    showToast('✅ Verifica WA completata!','success');
+    renderQualita();
+    return;
+  }
+  const c = _waLista[_waIndex];
+  const num = waNum(c.cellulare);
+  const url = 'https://wa.me/'+num;
+  const rimasti = _waLista.length - _waIndex - 1;
+  document.getElementById('modal-title').textContent = `📱 Verifica WA ${_waIndex+1}/${_waLista.length}`;
+  document.getElementById('modal-content').innerHTML = `
+    <div style="text-align:center;padding:10px 0">
+      <div style="font-weight:700;font-size:16px;margin-bottom:4px">${esc(c.nome)}</div>
+      ${c.azienda?`<div style="font-size:12px;color:var(--muted);margin-bottom:4px">${esc(c.azienda)}</div>`:''}
+      <div style="color:#25d366;font-size:14px;margin-bottom:16px">${esc(c.cellulare)}</div>
+      <a href="${url}" target="_blank" onclick="setTimeout(()=>chiediEsitoWA(${c.id}),1500)"
+         style="background:#25d366;color:#fff;padding:11px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;display:inline-block;margin-bottom:16px">
+        💬 Apri WhatsApp
+      </a>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:16px">${rimasti} rimasti · clicca per aprire, poi conferma</div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button onclick="marcaWASeq(${c.id},'si')" style="background:rgba(37,211,102,.15);color:#25d366;border:1px solid rgba(37,211,102,.4);padding:8px 18px;border-radius:8px;cursor:pointer;font-weight:700">✅ Su WA</button>
+        <button onclick="marcaWASeq(${c.id},'no')" style="background:rgba(239,68,68,.1);color:var(--danger);border:1px solid rgba(239,68,68,.3);padding:8px 18px;border-radius:8px;cursor:pointer;font-weight:700">❌ Non su WA</button>
+        <button onclick="_waIndex++;mostraVerificaWASeq()" style="background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:8px 14px;border-radius:8px;cursor:pointer">⏭ Salta</button>
+      </div>
+      <div style="margin-top:12px">
+        <button onclick="closeModal()" style="background:transparent;border:none;color:var(--muted);font-size:12px;cursor:pointer">✕ Interrompi</button>
+      </div>
+    </div>`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+async function marcaWASeq(contactId, esito){
+  const c = contacts.find(x=>x.id===contactId);
+  if(c){
+    if(esito==='si') c.tags = [...(c.tags||[]).filter(t=>t!=='no-wa'), 'wa-ok'];
+    else             c.tags = [...(c.tags||[]).filter(t=>t!=='wa-ok'), 'no-wa'];
+    await dbUpsert(c);
+  }
+  _waIndex++;
+  mostraVerificaWASeq();
 }
 
 </script>
