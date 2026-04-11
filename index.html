@@ -3737,44 +3737,59 @@ async function importaLeadInCRM(id){
   const l = leadData.find(x=>String(x.id)===String(id));
   if(!l){ showToast('Lead non trovato','warn'); return; }
 
-  // Controlla duplicati nel CRM per email o telefono
+  // Cerca contatto esistente per email o telefono
   const dup = contacts.find(c=>
-    (l.email && c.email === l.email) ||
-    (l.telefono && c.telefono === l.telefono) ||
-    (l.cellulare && c.cellulare === l.cellulare)
+    (l.email    && c.email    && c.email.toLowerCase()===l.email.toLowerCase()) ||
+    (l.telefono && c.telefono && c.telefono.replace(/\s/g,'')===l.telefono.replace(/\s/g,'')) ||
+    (l.telefono && c.cellulare && c.cellulare.replace(/\s/g,'')===l.telefono.replace(/\s/g,''))
   );
+
+  let targetId;
+
   if(dup){
-    if(!confirm('Esiste già un contatto simile: '+dup.nome+'. Importare comunque?')) return;
+    // AGGIORNA il contatto esistente invece di crearne uno nuovo
+    const tagsEsistenti = dup.tags||[];
+    if(!tagsEsistenti.includes('lead'))    tagsEsistenti.push('lead');
+    if(!tagsEsistenti.includes('prospect')) tagsEsistenti.push('prospect');
+    dup.tags = tagsEsistenti;
+    // Aggiorna fonte se mancante
+    if(!dup.email    && l.email)    dup.email    = l.email;
+    if(!dup.telefono && l.telefono) dup.telefono = l.telefono;
+    if(!dup.azienda  && l.azienda)  dup.azienda  = l.azienda;
+    await dbUpsert(dup);
+    targetId = dup.id;
+    showToast('✅ Contatto esistente aggiornato con tag lead!','success');
+  } else {
+    // Crea nuovo contatto
+    const newContact = {
+      id: Date.now(),
+      nome:     l.ragione_sociale||'',
+      azienda:  l.azienda||'',
+      indirizzo:l.indirizzo||'',
+      comune:   l.comune||'',
+      provincia:l.provincia||'BA',
+      telefono: l.telefono||'',
+      cellulare:l.cellulare||'',
+      email:    l.email||'',
+      note:     l.note||'',
+      tags:     ['prospect','lead'],
+      fonte:    l.fonte||'manuale',
+      ultimoContatto:'', prossimoContatto:'',
+      reminderAttivo:false, lat:0, lng:0,
+    };
+    contacts.push(newContact);
+    await dbUpsert(newContact);
+    targetId = newContact.id;
+    showToast('✅ Nuovo contatto creato!','success');
   }
 
-  // Crea contatto
-  const newContact = {
-    id: Date.now(),
-    nome: l.ragione_sociale||'',
-    azienda: '',
-    indirizzo: l.indirizzo||'',
-    comune: l.comune||'',
-    provincia: l.provincia||'BA',
-    telefono: l.telefono||'',
-    cellulare: l.cellulare||'',
-    email: l.email||'',
-    note: (l.note||'')+(l.interesse?' Interesse: '+l.interesse:''),
-    tags: ['prospect', 'lead'],
-    fonte: l.fonte||'manuale',
-    ultimoContatto:'', prossimoContatto:'',
-    reminderAttivo:false, lat:0, lng:0,
-  };
-
-  contacts.push(newContact);
-  await dbUpsert(newContact);
-
-  // Collega lead al nuovo contatto
+  // Collega lead al contatto
   if(useCloud){
     await supabaseClient.from('lead_scouting')
-      .update({contact_id: newContact.id})
+      .update({contact_id: targetId})
       .eq('id', String(id));
     const lead = leadData.find(x=>String(x.id)===String(id));
-    if(lead) lead.contact_id = newContact.id;
+    if(lead) lead.contact_id = targetId;
   }
 
   // Aggiorna stato lead
@@ -3785,7 +3800,7 @@ async function importaLeadInCRM(id){
   // Log
   if(useCloud) await supabaseClient.from('automazioni_log').insert({
     tipo:'lead_importato', lead_id:String(id),
-    contact_id: newContact.id, esito:'ok'
+    contact_id: targetId, esito:'ok'
   }).catch(()=>{});
 
   updateAll();
