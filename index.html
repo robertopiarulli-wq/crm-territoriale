@@ -338,7 +338,11 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
           <option value="">Tutti gli stati</option>
           <option value="nuovo">🔵 Nuovi</option>
           <option value="contattato">🟡 Contattati</option>
-          <option value="importato">🟢 Importati nel CRM</option>
+          <option value="inviato">🟣 Link Inviato</option>
+          <option value="risposto">🩵 Ha Risposto</option>
+          <option value="trattativa">🟠 In Trattativa</option>
+          <option value="chiuso">🟢 Chiuso</option>
+          <option value="importato">✅ Importati nel CRM</option>
           <option value="ignorato">🔴 Ignorati</option>
         </select>
         <select id="lead-filter-fonte" onchange="renderLead()" style="width:auto;font-size:13px">
@@ -352,6 +356,9 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
         </select>
         <div id="lead-counter" style="margin-left:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:12px;font-family:'DM Mono',monospace;color:var(--muted)">0 lead</div>
       </div>
+
+      <!-- PIPELINE VISUALE -->
+      <div id="lead-pipeline" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap"></div>
 
       <div id="lead-list"></div>
     </div>
@@ -3573,6 +3580,31 @@ async function loadLead(){
       .order('created_at', {ascending:false});
     if(error){ console.error('loadLead:', error); return; }
     leadData = data||[];
+
+    // Collega automaticamente lead ai contatti esistenti per email/telefono
+    for(const lead of leadData){
+      if(lead.contact_id) continue; // già collegato
+      const match = contacts.find(c=>
+        (lead.email    && c.email    && c.email.toLowerCase()    === lead.email.toLowerCase()) ||
+        (lead.telefono && c.telefono && c.telefono.replace(/\s/g,'') === lead.telefono.replace(/\s/g,'')) ||
+        (lead.telefono && c.cellulare && c.cellulare.replace(/\s/g,'') === lead.telefono.replace(/\s/g,''))
+      );
+      if(match && useCloud){
+        // Aggiorna su Supabase
+        await supabaseClient.from('lead_scouting')
+          .update({contact_id: match.id})
+          .eq('id', lead.id);
+        lead.contact_id = match.id;
+        // Aggiorna stato lead a "risposto" se arriva da preventivopro e contatto esiste
+        if(lead.fonte==='preventivopro' && lead.stato==='nuovo'){
+          await supabaseClient.from('lead_scouting')
+            .update({stato:'risposto'})
+            .eq('id', lead.id);
+          lead.stato = 'risposto';
+        }
+      }
+    }
+
     // Aggiorna contatore tab
     const nuovi = leadData.filter(l=>l.stato==='nuovo').length;
     const badge = document.getElementById('tab-count-lead');
@@ -3604,6 +3636,29 @@ function renderLead(){
   const counter = document.getElementById('lead-counter');
   if(counter) counter.textContent = list.length+' lead'+(list.length!==leadData.length?' di '+leadData.length:'');
 
+  // Pipeline visuale
+  const pipeline = document.getElementById('lead-pipeline');
+  if(pipeline){
+    const STATI = [
+      {key:'nuovo',    label:'Nuovo',        color:'#3b82f6', icon:'🔵'},
+      {key:'contattato',label:'Contattato',  color:'#f59e0b', icon:'🟡'},
+      {key:'inviato',  label:'Link Inviato', color:'#a855f7', icon:'🟣'},
+      {key:'risposto', label:'Ha Risposto',  color:'#06b6d4', icon:'🩵'},
+      {key:'trattativa',label:'Trattativa',  color:'#f97316', icon:'🟠'},
+      {key:'chiuso',   label:'Chiuso',       color:'#22c55e', icon:'🟢'},
+    ];
+    pipeline.innerHTML = STATI.map(s=>{
+      const count = leadData.filter(l=>l.stato===s.key).length;
+      return `<div onclick="document.getElementById('lead-filter-stato').value='${s.key}';renderLead()" 
+        style="background:var(--card);border:1px solid ${s.color}44;border-radius:10px;padding:10px 16px;cursor:pointer;flex:1;min-width:90px;text-align:center;transition:all .2s"
+        onmouseover="this.style.borderColor='${s.color}'" onmouseout="this.style.borderColor='${s.color}44'">
+        <div style="font-size:18px">${s.icon}</div>
+        <div style="font-size:20px;font-weight:800;color:${s.color}">${count}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${s.label}</div>
+      </div>`;
+    }).join('');
+  }
+
   if(!list.length){
     el.innerHTML = `<div style="text-align:center;padding:48px;color:var(--muted)">
       <div style="font-size:36px;margin-bottom:12px">🎯</div>
@@ -3619,8 +3674,8 @@ function renderLead(){
 function buildLeadCard(l){
   const fonteLabel = l.fonte==='preventivopro'?'PreventivoPro':l.fonte==='google_maps'?'Google Maps':'Manuale';
   const fonteClass = l.fonte==='preventivopro'?'preventivopro':l.fonte==='google_maps'?'google_maps':'manuale';
-  const statoColor = {nuovo:'#3b82f6',contattato:'#f59e0b',importato:'#22c55e',ignorato:'#ef4444'}[l.stato]||'#94a3b8';
-  const statoLabel = {nuovo:'Nuovo',contattato:'Contattato',importato:'Importato',ignorato:'Ignorato'}[l.stato]||l.stato;
+  const statoColor = {nuovo:'#3b82f6',contattato:'#f59e0b',inviato:'#a855f7',risposto:'#06b6d4',trattativa:'#f97316',chiuso:'#22c55e',importato:'#22c55e',ignorato:'#ef4444'}[l.stato]||'#94a3b8';
+  const statoLabel = {nuovo:'Nuovo',contattato:'Contattato',inviato:'Link Inviato',risposto:'Ha Risposto',trattativa:'In Trattativa',chiuso:'Chiuso',importato:'Importato',ignorato:'Ignorato'}[l.stato]||l.stato;
   const lid = l.id;
   const waHref = l.cellulare ? `https://wa.me/${waNum(l.cellulare)}` : '';
   const mailHref = l.email ? `mailto:${l.email}` : '';
@@ -3650,15 +3705,19 @@ function buildLeadCard(l){
         ${mailHref?`<a href="${mailHref}" style="background:rgba(249,115,22,.1);color:var(--accent);border:1px solid rgba(249,115,22,.3);border-radius:7px;padding:5px 10px;font-size:11px;text-decoration:none;text-align:center">✉</a>`:''}
         <select data-lid="${lid}" onchange="aggiornaStatoLead(this.dataset.lid,this.value);this.value=''" style="font-size:10px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">
           <option value="">Stato...</option>
-          <option value="nuovo">🔵 Nuovo</option>
           <option value="contattato">🟡 Contattato</option>
+          <option value="inviato">🟣 Link Inviato</option>
+          <option value="risposto">🩵 Ha Risposto</option>
+          <option value="trattativa">🟠 In Trattativa</option>
+          <option value="chiuso">🟢 Chiuso</option>
           <option value="ignorato">🔴 Ignora</option>
         </select>
       </div>
     </div>
-    <div style="font-size:10px;color:var(--muted);margin-top:8px;font-family:'DM Mono',monospace">
-      ${dataStr}
-      ${l.sito_web?` · <a href="${esc(l.sito_web)}" target="_blank" style="color:var(--accent)">🌐 Sito web</a>`:''}
+    <div style="font-size:10px;color:var(--muted);margin-top:8px;font-family:'DM Mono',monospace;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span>${dataStr}</span>
+      ${l.sito_web?`<a href="${esc(l.sito_web)}" target="_blank" style="color:var(--accent)">🌐 Sito web</a>`:''}
+      ${l.contact_id ? `<span onclick="editContact(${l.contact_id})" style="cursor:pointer;background:rgba(34,197,94,.12);color:var(--success);border:1px solid rgba(34,197,94,.3);border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700">👤 Contatto collegato</span>` : `<span style="color:var(--muted);font-size:10px">Non collegato a nessun contatto</span>`}
     </div>
   </div>`;
 }
@@ -3709,14 +3768,23 @@ async function importaLeadInCRM(id){
   contacts.push(newContact);
   await dbUpsert(newContact);
 
+  // Collega lead al nuovo contatto
+  if(useCloud){
+    await supabaseClient.from('lead_scouting')
+      .update({contact_id: newContact.id})
+      .eq('id', String(id));
+    const lead = leadData.find(x=>String(x.id)===String(id));
+    if(lead) lead.contact_id = newContact.id;
+  }
+
   // Aggiorna stato lead
   await aggiornaStatoLead(id, 'importato');
-  const lead = leadData.find(x=>x.id===id);
-  if(lead) lead.importato_in_crm = true;
+  const lead2 = leadData.find(x=>String(x.id)===String(id));
+  if(lead2) lead2.importato_in_crm = true;
 
   // Log
   if(useCloud) await supabaseClient.from('automazioni_log').insert({
-    tipo:'lead_importato', lead_id:id,
+    tipo:'lead_importato', lead_id:String(id),
     contact_id: newContact.id, esito:'ok'
   }).catch(()=>{});
 
