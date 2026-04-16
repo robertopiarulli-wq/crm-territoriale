@@ -520,9 +520,14 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
             <option value="">Tutti</option>
           </select>
         </div>
-        <button onclick="apriOutlookGruppo()" class="btn-primary" style="white-space:nowrap;align-self:flex-end">
-          📧 Apri in Outlook <span id="email-count-badge" style="background:rgba(255,255,255,.25);border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px">0</span>
-        </button>
+        <div style="display:flex;gap:8px;align-self:flex-end;flex-wrap:wrap">
+          <button onclick="apriOutlookGruppo()" class="btn-secondary" style="white-space:nowrap">
+            📧 Outlook CCN <span id="email-count-badge" style="background:rgba(0,0,0,.15);border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px">0</span>
+          </button>
+          <button onclick="avviaCampagnaGiornaliera()" class="btn-primary" style="white-space:nowrap">
+            🚀 Campagna 1×1 <span id="campagna-count-badge" style="background:rgba(255,255,255,.25);border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px">0</span>
+          </button>
+        </div>
       </div>
 
       <div style="display:grid;grid-template-columns:240px 1fr;gap:16px;margin-top:16px" id="email-main-grid">
@@ -2784,6 +2789,7 @@ function renderEmailGruppo(){
   // Rimuovi dal set eventuali id non più in lista
   emailSelezionati = new Set([...emailSelezionati].filter(id=>list.some(c=>c.id===id)));
   updateEmailBadge();
+  aggiornaContatoreCampagna();
   // Aggiorna contatore totale/filtrati
   const emailCounter = document.getElementById('email-gruppo-counter');
   if(emailCounter){
@@ -3854,6 +3860,217 @@ async function salvaLeadManuale(){
   closeModal();
   renderLead();
   showToast('✅ Lead salvato!','success');
+}
+
+// ══════════════════════════════════════════════════════════════
+// CAMPAGNA EMAIL 1×1 (semi-automatica via Outlook Web)
+// ══════════════════════════════════════════════════════════════
+const TRACKING_BASE   = 'https://preventivopro.vercel.app/api/track';
+const LINK_CONFIGURA  = 'https://preventivopro.vercel.app/configura';
+const LINK_PREVENTIVI = 'https://preventivopro.vercel.app/richiesta/podopiu';
+const CAMPAGNA_NOME   = 'campagna-' + new Date().toISOString().slice(0,7);
+const MAX_GIORNO      = 50;
+
+let campagnaLista = [];
+let campagnaIndex = 0;
+
+function avviaCampagnaGiornaliera(){
+  // Prendi i selezionati oppure i filtrati con email
+  const prov = document.getElementById('email-filter-prov')?.value||'';
+  const tag  = document.getElementById('email-filter-tag')?.value||'';
+  let lista  = contacts.filter(c=>c.email&&!(c.tags||[]).includes('cancellato'));
+  if(prov) lista = lista.filter(c=>c.provincia===prov);
+  if(tag)  lista = lista.filter(c=>(c.tags||[]).includes(tag));
+  // Priorità ai selezionati
+  if(emailSelezionati.size>0){
+    lista = [...emailSelezionati].map(id=>contacts.find(c=>c.id===id)).filter(c=>c&&c.email);
+  }
+  lista = lista.slice(0, MAX_GIORNO);
+
+  if(!lista.length){ showToast('Nessun contatto con email disponibile','warn'); return; }
+
+  campagnaLista = lista;
+  campagnaIndex = 0;
+  mostraModaleInvio();
+}
+
+function generaTestoEmail(c){
+  const regione = c.regione || (
+    ['BA','BT','BR','FG','LE','TA'].includes(c.provincia) ? 'Puglia' :
+    ['PZ','MT'].includes(c.provincia) ? 'Basilicata' :
+    ['CB','IS'].includes(c.provincia) ? 'Molise' : ''
+  );
+  const citta = c.comune || PROVINCE[c.provincia]?.n || c.provincia || '';
+  const lid   = c.id;
+
+  let intro = '';
+  if(regione==='Puglia')        intro = `Stiamo aggiornando le convenzioni forniture per i professionisti della Puglia.`;
+  else if(regione==='Basilicata') intro = `Stiamo estendendo i nostri servizi di preventivazione rapida anche alle strutture di ${citta} e provincia.`;
+  else if(regione==='Molise')   intro = `Vogliamo portare le nostre soluzioni anche in Molise, partendo da ${citta}.`;
+  else                          intro = `Stiamo aggiornando le convenzioni forniture per i professionisti del settore.`;
+
+  const zona = citta ? `per ${citta} e provincia` : 'per la tua zona';
+  const pixel = `<img src="${TRACKING_BASE}?lid=${lid}&c=${CAMPAGNA_NOME}" width="1" height="1" style="display:none">`;
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;font-size:14px;color:#333;max-width:600px;margin:0 auto;padding:20px;line-height:1.6">
+<p>Ciao,</p>
+<p>${intro}</p>
+<p>Abbiamo attivato una piattaforma gratuita che permette ai professionisti di ricevere <strong>quotazioni riservate e personalizzate</strong> sulle attrezzature e i prodotti di interesse, senza attese telefoniche.</p>
+<p>In pochi click puoi:</p>
+<ul>
+<li>Indicare le attrezzature di interesse per il tuo studio</li>
+<li>Ricevere una quotazione su misura entro 24 ore</li>
+<li>Scoprire le promozioni attive ${zona}</li>
+</ul>
+<div style="margin:28px 0">
+<a href="${LINK_CONFIGURA}?ref=${lid}" style="background:#f97316;color:#fff;padding:13px 28px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:15px;display:inline-block">
+Scopri le promozioni riservate →
+</a>
+</div>
+<p>Oppure, se preferisci richiedere subito un preventivo:<br>
+<a href="${LINK_PREVENTIVI}?ref=${lid}" style="color:#f97316;font-weight:600">Accedi alla piattaforma preventivi →</a></p>
+<p style="margin-top:32px;font-size:13px;color:#555;border-top:1px solid #eee;padding-top:16px">
+Cordiali saluti,<br><strong>Roberto Piarulli</strong><br>
+Consulente forniture · Puglia · Basilicata · Molise
+</p>
+<p style="font-size:11px;color:#aaa;margin-top:16px">
+Ha ricevuto questa email perché il suo contatto è presente negli elenchi professionali della zona.
+Per non ricevere ulteriori comunicazioni, risponda con "Cancella" a questa email.
+</p>
+${pixel}
+</body></html>`;
+
+  const oggetto = `Listino riservato professionisti ${regione} 2026`.trim();
+  return { oggetto, html };
+}
+
+function mostraModaleInvio(){
+  if(campagnaIndex >= campagnaLista.length){
+    closeModal();
+    showToast(`✅ Campagna completata! ${campagnaLista.length} email inviate`,'success');
+    updateAll();
+    return;
+  }
+
+  const c = campagnaLista[campagnaIndex];
+  const { oggetto, html } = generaTestoEmail(c);
+  const rimasti = campagnaLista.length - campagnaIndex - 1;
+  const outlookUrl = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(c.email)}&subject=${encodeURIComponent(oggetto)}`;
+
+  document.getElementById('modal-title').textContent = `📧 Campagna ${campagnaIndex+1}/${campagnaLista.length}`;
+  document.getElementById('modal-content').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:14px">
+
+      <!-- Info contatto -->
+      <div style="background:var(--surface);border-radius:10px;padding:12px 16px;display:flex;gap:12px;align-items:center">
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:14px">${esc(c.nome)}</div>
+          <div style="font-size:12px;color:var(--muted)">${esc(c.email)} · ${c.comune||PROVINCE[c.provincia]?.n||c.provincia}</div>
+        </div>
+        <span style="background:var(--accent)22;color:var(--accent);border-radius:20px;padding:3px 10px;font-size:11px">${rimasti} rimasti</span>
+      </div>
+
+      <!-- Oggetto -->
+      <div>
+        <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Oggetto</label>
+        <div style="margin-top:4px;background:var(--surface);border-radius:8px;padding:10px 14px;font-size:13px">${esc(oggetto)}</div>
+      </div>
+
+      <!-- Anteprima email -->
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Anteprima</label>
+          <button onclick="copiaHTMLEmail(${campagnaIndex})" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer;font-weight:700">
+            📋 Copia HTML
+          </button>
+        </div>
+        <iframe id="email-preview-frame" srcdoc="${html.replace(/"/g,'&quot;')}"
+          style="width:100%;height:280px;border:1px solid var(--border);border-radius:8px;background:#fff">
+        </iframe>
+      </div>
+
+      <!-- Istruzioni -->
+      <div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:12px;font-size:12px;color:var(--text2);line-height:1.6">
+        <strong>Come fare:</strong><br>
+        1. Clicca <strong>📋 Copia HTML</strong><br>
+        2. Clicca <strong>✉ Apri Outlook</strong> → si apre con destinatario e oggetto<br>
+        3. Nel corpo email: clicca "..." → <strong>"Cambia in HTML"</strong> → incolla<br>
+        4. Clicca <strong>✅ Inviato</strong> qui sotto
+      </div>
+
+      <!-- Bottoni azione -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a href="${outlookUrl}" target="_blank"
+           style="flex:1;background:#0078d4;color:#fff;padding:11px;border-radius:9px;text-decoration:none;font-weight:700;font-size:13px;text-align:center">
+          ✉ Apri Outlook
+        </a>
+        <button onclick="segnaInviato(${c.id})" 
+          style="flex:1;background:rgba(34,197,94,.15);color:var(--success);border:1px solid rgba(34,197,94,.4);border-radius:9px;padding:11px;cursor:pointer;font-weight:700;font-size:13px">
+          ✅ Inviato → Prossimo
+        </button>
+        <button onclick="saltaContatto()"
+          style="background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:9px;padding:11px 16px;cursor:pointer;font-size:12px">
+          ⏭ Salta
+        </button>
+      </div>
+      <button onclick="closeModal()" style="background:transparent;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-align:center">
+        ✕ Interrompi campagna
+      </button>
+    </div>`;
+
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+// Store HTML per copia
+let _emailHTMLCache = {};
+function mostraModaleInvioWrapper(){
+  const c = campagnaLista[campagnaIndex];
+  if(c){ const {html} = generaTestoEmail(c); _emailHTMLCache[campagnaIndex] = html; }
+  mostraModaleInvio();
+}
+
+function copiaHTMLEmail(idx){
+  const c = campagnaLista[idx];
+  if(!c) return;
+  const {html} = generaTestoEmail(c);
+  navigator.clipboard.writeText(html)
+    .then(()=>showToast('📋 HTML copiato! Incolla in Outlook','success'))
+    .catch(()=>showToast('Seleziona e copia manualmente','warn'));
+}
+
+async function segnaInviato(contactId){
+  const c = contacts.find(x=>x.id===contactId);
+  if(c){
+    const tags = c.tags||[];
+    if(!tags.includes('inviato-email')) tags.push('inviato-email');
+    c.tags = tags;
+    await dbUpsert(c);
+    // Aggiorna anche lead se collegato
+    if(useCloud){
+      await supabaseClient.from('lead_scouting')
+        .update({stato:'inviato'})
+        .eq('email', c.email);
+    }
+  }
+  campagnaIndex++;
+  mostraModaleInvio();
+}
+
+function saltaContatto(){
+  campagnaIndex++;
+  mostraModaleInvio();
+}
+
+function aggiornaContatoreCampagna(){
+  const badge = document.getElementById('campagna-count-badge');
+  if(!badge) return;
+  const prov = document.getElementById('email-filter-prov')?.value||'';
+  const tag  = document.getElementById('email-filter-tag')?.value||'';
+  let lista  = contacts.filter(c=>c.email&&!(c.tags||[]).includes('cancellato'));
+  if(prov) lista = lista.filter(c=>c.provincia===prov);
+  if(tag)  lista = lista.filter(c=>(c.tags||[]).includes(tag));
+  badge.textContent = Math.min(lista.length, MAX_GIORNO);
 }
 
 </script>
