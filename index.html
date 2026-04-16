@@ -3933,9 +3933,18 @@ function generaTestoEmail(c){
   <li>Ricevere una quotazione su misura entro 24 ore</li>
   <li>Scoprire le promozioni attive ${zona}</li>
 </ul>
-<p>
-  <a href="${LINK_CONFIGURA}?ref=${lid}" class="btn-cta">Scopri le promozioni riservate &rarr;</a>
-</p>
+<table cellpadding="0" cellspacing="0" border="0" style="margin:24px 0">
+  <tr>
+    <td bgcolor="#f97316" style="border-radius:8px;padding:0">
+      <a href="${LINK_CONFIGURA}?ref=${lid}"
+         style="display:inline-block;padding:14px 32px;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:8px;background-color:#f97316;mso-padding-alt:14px 32px">
+        <!--[if mso]><i style="letter-spacing:25px;mso-font-width:-100%;mso-text-raise:30pt">&nbsp;</i><![endif]-->
+        Scopri le promozioni riservate &rarr;
+        <!--[if mso]><i style="letter-spacing:25px;mso-font-width:-100%">&nbsp;</i><![endif]-->
+      </a>
+    </td>
+  </tr>
+</table>
 <p>Oppure, se preferisci richiedere subito un preventivo su un prodotto specifico:<br>
 <a href="${LINK_PREVENTIVI}?ref=${lid}" class="btn-link">Accedi alla piattaforma preventivi &rarr;</a></p>
 <div class="footer">
