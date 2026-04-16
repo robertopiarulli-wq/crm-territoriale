@@ -3981,8 +3981,8 @@ function mostraModaleInvio(){
       <div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
           <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Anteprima</label>
-          <button onclick="copiaHTMLEmail(${campagnaIndex})" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer;font-weight:700">
-            📋 Copia HTML
+          <button onclick="apriAnteprimaEmail(${campagnaIndex})" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer;font-weight:700">
+            🔍 Apri anteprima
           </button>
         </div>
         <iframe id="email-preview-frame" srcdoc="${html.replace(/"/g,'&quot;')}"
@@ -3993,10 +3993,11 @@ function mostraModaleInvio(){
       <!-- Istruzioni -->
       <div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:12px;font-size:12px;color:var(--text2);line-height:1.6">
         <strong>Come fare:</strong><br>
-        1. Clicca <strong>📋 Copia HTML</strong><br>
-        2. Clicca <strong>✉ Apri Outlook</strong> → si apre con destinatario e oggetto<br>
-        3. Nel corpo email: clicca "..." → <strong>"Cambia in HTML"</strong> → incolla<br>
-        4. Clicca <strong>✅ Inviato</strong> qui sotto
+        1. Clicca <strong>✉ Apri Outlook</strong> → si apre con destinatario e oggetto<br>
+        2. Clicca <strong>🔍 Apri anteprima</strong> → si apre l'email in una nuova finestra<br>
+        3. Nella nuova finestra: <strong>Ctrl+A</strong> (seleziona tutto) → <strong>Ctrl+C</strong> (copia)<br>
+        4. Torna in Outlook → clicca nel corpo email → <strong>Ctrl+V</strong> (incolla)<br>
+        5. Clicca <strong>✅ Inviato</strong> qui sotto
       </div>
 
       <!-- Bottoni azione -->
@@ -4030,13 +4031,30 @@ function mostraModaleInvioWrapper(){
   mostraModaleInvio();
 }
 
+function apriAnteprimaEmail(idx){
+  const c = campagnaLista[idx];
+  if(!c) return;
+  const {html} = generaTestoEmail(c);
+  const win = window.open('','_blank','width=680,height=600,scrollbars=yes');
+  if(!win){ showToast('Abilita i popup per questo sito','warn'); return; }
+  win.document.write(html);
+  win.document.close();
+  // Seleziona tutto automaticamente dopo apertura
+  win.onload = () => {
+    try {
+      win.document.execCommand('selectAll');
+      showToast('✅ Anteprima aperta — Ctrl+A e Ctrl+C per copiare!','success');
+    } catch(e){}
+  };
+}
+
 function copiaHTMLEmail(idx){
   const c = campagnaLista[idx];
   if(!c) return;
   const {html} = generaTestoEmail(c);
   navigator.clipboard.writeText(html)
-    .then(()=>showToast('📋 HTML copiato! Incolla in Outlook','success'))
-    .catch(()=>showToast('Seleziona e copia manualmente','warn'));
+    .then(()=>showToast('📋 HTML copiato!','success'))
+    .catch(()=>showToast('Usa Apri anteprima','warn'));
 }
 
 async function segnaInviato(contactId){
