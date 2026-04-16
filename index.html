@@ -3912,34 +3912,38 @@ function generaTestoEmail(c){
   const zona = citta ? `per ${citta} e provincia` : 'per la tua zona';
   const pixel = `<img src="${TRACKING_BASE}?lid=${lid}&c=${CAMPAGNA_NOME}" width="1" height="1" style="display:none">`;
 
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
-<body style="font-family:Arial,sans-serif;font-size:14px;color:#333;max-width:600px;margin:0 auto;padding:20px;line-height:1.6">
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 14px; color: #333333; max-width: 600px; margin: 0 auto; padding: 20px; line-height: 1.6; background: #ffffff; }
+  .btn-cta { display: inline-block; background-color: #f97316; color: #ffffff !important; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; margin: 20px 0; }
+  .btn-link { color: #f97316 !important; font-weight: 600; }
+  .footer { margin-top: 32px; font-size: 11px; color: #999999; border-top: 1px solid #eeeeee; padding-top: 16px; }
+</style>
+</head>
+<body>
 <p>Ciao,</p>
 <p>${intro}</p>
 <p>Abbiamo attivato una piattaforma gratuita che permette ai professionisti di ricevere <strong>quotazioni riservate e personalizzate</strong> sulle attrezzature e i prodotti di interesse, senza attese telefoniche.</p>
 <p>In pochi click puoi:</p>
 <ul>
-<li>Indicare le attrezzature di interesse per il tuo studio</li>
-<li>Ricevere una quotazione su misura entro 24 ore</li>
-<li>Scoprire le promozioni attive ${zona}</li>
+  <li>Indicare le attrezzature di interesse per il tuo studio</li>
+  <li>Ricevere una quotazione su misura entro 24 ore</li>
+  <li>Scoprire le promozioni attive ${zona}</li>
 </ul>
-<div style="margin:28px 0">
-<a href="${LINK_CONFIGURA}?ref=${lid}" style="background:#f97316;color:#fff;padding:13px 28px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:15px;display:inline-block">
-Scopri le promozioni riservate →
-</a>
+<p>
+  <a href="${LINK_CONFIGURA}?ref=${lid}" class="btn-cta">Scopri le promozioni riservate &rarr;</a>
+</p>
+<p>Oppure, se preferisci richiedere subito un preventivo su un prodotto specifico:<br>
+<a href="${LINK_PREVENTIVI}?ref=${lid}" class="btn-link">Accedi alla piattaforma preventivi &rarr;</a></p>
+<div class="footer">
+  Per non ricevere ulteriori comunicazioni, risponda con "Cancella" a questa email.
 </div>
-<p>Oppure, se preferisci richiedere subito un preventivo:<br>
-<a href="${LINK_PREVENTIVI}?ref=${lid}" style="color:#f97316;font-weight:600">Accedi alla piattaforma preventivi →</a></p>
-<p style="margin-top:32px;font-size:13px;color:#555;border-top:1px solid #eee;padding-top:16px">
-Cordiali saluti,<br><strong>Roberto Piarulli</strong><br>
-Consulente forniture · Puglia · Basilicata · Molise
-</p>
-<p style="font-size:11px;color:#aaa;margin-top:16px">
-Ha ricevuto questa email perché il suo contatto è presente negli elenchi professionali della zona.
-Per non ricevere ulteriori comunicazioni, risponda con "Cancella" a questa email.
-</p>
 ${pixel}
-</body></html>`;
+</body>
+</html>`;
 
   const oggetto = `Listino riservato professionisti ${regione} 2026`.trim();
   return { oggetto, html };
