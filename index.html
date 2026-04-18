@@ -328,6 +328,7 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button onclick="loadLead()" class="btn-secondary" style="font-size:12px">🔄 Aggiorna</button>
+          <button onclick="aggiungiLeadAListaEmail()" class="btn-secondary" style="font-size:12px;background:rgba(249,115,22,.12);color:var(--accent);border-color:rgba(249,115,22,.4)">📧 → Lista Email</button>
           <button onclick="apriNuovoLead()" class="btn-primary" style="font-size:12px">➕ Aggiungi manuale</button>
         </div>
       </div>
@@ -4167,8 +4168,12 @@ async function salvaSchedaLead(id){
 async function eliminaLead(id){
   if(!confirm('Eliminare questo lead definitivamente?')) return;
   if(useCloud){
-    const {error} = await supabaseClient.from('lead_scouting').delete().eq('id',String(id));
-    if(error){ showToast('Errore eliminazione','danger'); return; }
+    const {error} = await supabaseClient.from('lead_scouting').delete().eq('id',id);
+    if(error){ 
+      console.error('Errore eliminazione:', error);
+      showToast('Errore: '+error.message,'danger'); 
+      return; 
+    }
   }
   leadData = leadData.filter(x=>String(x.id)!==String(id));
   renderLead();
@@ -4187,6 +4192,77 @@ function campagnaLeadSingolo(id){
   campagnaLista = [fakeContact];
   campagnaIndex = 0;
   mostraModaleInvio();
+}
+
+async function aggiungiLeadAListaEmail(){
+  // Prendi tutti i lead con email (applicando filtri correnti)
+  const stato = document.getElementById('lead-filter-stato')?.value||'';
+  const fonte = document.getElementById('lead-filter-fonte')?.value||'';
+  const prov  = document.getElementById('lead-filter-prov')?.value||'';
+
+  let lista = leadData.filter(l=>l.email);
+  if(stato) lista = lista.filter(l=>l.stato===stato);
+  if(fonte) lista = lista.filter(l=>l.fonte===fonte);
+  if(prov)  lista = lista.filter(l=>l.provincia===prov);
+
+  if(!lista.length){ showToast('Nessun lead con email nei filtri correnti','warn'); return; }
+
+  // Seleziona lista email di destinazione
+  const listeEmail = Object.values(listeDist).filter(l=>l.tipo==='email');
+  if(!listeEmail.length){ showToast('Crea prima una lista email nel tab Email Gruppo','warn'); return; }
+
+  const nomiListe = listeEmail.map((l,i)=>`${i+1}. ${l.nome} (${(l.contatti||[]).length} contatti)`).join('
+');
+  const scelta = prompt(`In quale lista aggiungere ${lista.length} lead con email?
+
+${nomiListe}
+
+Inserisci il numero:`);
+  if(!scelta) return;
+
+  const idx = parseInt(scelta)-1;
+  if(isNaN(idx)||idx<0||idx>=listeEmail.length){ showToast('Scelta non valida','warn'); return; }
+
+  const listaTarget = listeEmail[idx];
+
+  // Aggiungi lead come contatti temporanei o direttamente alla lista tramite email
+  let aggiunti = 0;
+  for(const lead of lista){
+    // Cerca se esiste già un contatto con questa email
+    const existing = contacts.find(c=>c.email && c.email.toLowerCase()===lead.email.toLowerCase());
+    if(existing){
+      if(!(listaTarget.contatti||[]).includes(existing.id)){
+        listaTarget.contatti = [...(listaTarget.contatti||[]), existing.id];
+        aggiunti++;
+      }
+    } else {
+      // Crea contatto temporaneo e aggiungilo
+      const tempContact = {
+        id: 'lead_'+lead.id,
+        nome: lead.ragione_sociale||'',
+        email: lead.email,
+        telefono: lead.telefono||'',
+        cellulare: lead.cellulare||'',
+        comune: lead.comune||'',
+        provincia: lead.provincia||'',
+        regione: lead.regione||'',
+        tags: ['lead'],
+        _isLead: true,
+        _leadId: lead.id
+      };
+      // Aggiungi ai contatti in memoria
+      if(!contacts.find(c=>c.id===tempContact.id)){
+        contacts.push(tempContact);
+      }
+      if(!(listaTarget.contatti||[]).includes(tempContact.id)){
+        listaTarget.contatti = [...(listaTarget.contatti||[]), tempContact.id];
+        aggiunti++;
+      }
+    }
+  }
+
+  salvaListeDist();
+  showToast(`✅ ${aggiunti} lead aggiunti alla lista "${listaTarget.nome}"!`,'success');
 }
 
 </script>
