@@ -4204,7 +4204,7 @@ async function aggiungiLeadAListaEmail(){
   if(prov)  lista = lista.filter(l=>l.provincia===prov);
   if(!lista.length){ showToast('Nessun lead con email nei filtri correnti','warn'); return; }
 
-  const listeEmail = Object.values(listeDist).filter(l=>l.tipo==='email');
+  const listeEmail = listeDist.email||[];
   if(!listeEmail.length){ showToast('Crea prima una lista email nel tab Email Gruppo','warn'); return; }
 
   // Mostra selezione lista con modale
@@ -4224,7 +4224,7 @@ async function aggiungiLeadAListaEmail(){
 
 function eseguiAggiungiLead(tot){
   const idx = parseInt(document.getElementById('lista-target-sel').value);
-  const listeEmail = Object.values(listeDist).filter(l=>l.tipo==='email');
+  const listeEmail = listeDist.email||[];
   const listaTarget = listeEmail[idx];
   const lista = window._leadDaAggiungere||[];
   let aggiunti = 0;
