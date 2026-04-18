@@ -4195,40 +4195,40 @@ function campagnaLeadSingolo(id){
 }
 
 async function aggiungiLeadAListaEmail(){
-  // Prendi tutti i lead con email (applicando filtri correnti)
   const stato = document.getElementById('lead-filter-stato')?.value||'';
   const fonte = document.getElementById('lead-filter-fonte')?.value||'';
   const prov  = document.getElementById('lead-filter-prov')?.value||'';
-
   let lista = leadData.filter(l=>l.email);
   if(stato) lista = lista.filter(l=>l.stato===stato);
   if(fonte) lista = lista.filter(l=>l.fonte===fonte);
   if(prov)  lista = lista.filter(l=>l.provincia===prov);
-
   if(!lista.length){ showToast('Nessun lead con email nei filtri correnti','warn'); return; }
 
-  // Seleziona lista email di destinazione
   const listeEmail = Object.values(listeDist).filter(l=>l.tipo==='email');
   if(!listeEmail.length){ showToast('Crea prima una lista email nel tab Email Gruppo','warn'); return; }
 
-  const nomiListe = listeEmail.map((l,i)=>`${i+1}. ${l.nome} (${(l.contatti||[]).length} contatti)`).join('
-');
-  const scelta = prompt(`In quale lista aggiungere ${lista.length} lead con email?
+  // Mostra selezione lista con modale
+  document.getElementById('modal-title').textContent = 'Aggiungi lead a lista email';
+  const opzioni = listeEmail.map((l,i) => '<option value="'+i+'">'+l.nome+' ('+((l.contatti||[]).length)+' contatti)</option>').join('');
+  document.getElementById('modal-content').innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:16px">' +
+    '<p style="font-size:14px;color:var(--muted)">'+lista.length+' lead con email verranno aggiunti alla lista selezionata.</p>' +
+    '<select id="lista-target-sel" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)">'+opzioni+'</select>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+    '<button class="btn-secondary" onclick="closeModal()">Annulla</button>' +
+    '<button class="btn-primary" onclick="eseguiAggiungiLead('+lista.length+')">✅ Aggiungi</button>' +
+    '</div></div>';
+  window._leadDaAggiungere = lista;
+  document.getElementById('modal-overlay').classList.add('open');
+}
 
-${nomiListe}
-
-Inserisci il numero:`);
-  if(!scelta) return;
-
-  const idx = parseInt(scelta)-1;
-  if(isNaN(idx)||idx<0||idx>=listeEmail.length){ showToast('Scelta non valida','warn'); return; }
-
+function eseguiAggiungiLead(tot){
+  const idx = parseInt(document.getElementById('lista-target-sel').value);
+  const listeEmail = Object.values(listeDist).filter(l=>l.tipo==='email');
   const listaTarget = listeEmail[idx];
-
-  // Aggiungi lead come contatti temporanei o direttamente alla lista tramite email
+  const lista = window._leadDaAggiungere||[];
   let aggiunti = 0;
   for(const lead of lista){
-    // Cerca se esiste già un contatto con questa email
     const existing = contacts.find(c=>c.email && c.email.toLowerCase()===lead.email.toLowerCase());
     if(existing){
       if(!(listaTarget.contatti||[]).includes(existing.id)){
@@ -4236,33 +4236,22 @@ Inserisci il numero:`);
         aggiunti++;
       }
     } else {
-      // Crea contatto temporaneo e aggiungilo
-      const tempContact = {
-        id: 'lead_'+lead.id,
-        nome: lead.ragione_sociale||'',
-        email: lead.email,
-        telefono: lead.telefono||'',
-        cellulare: lead.cellulare||'',
-        comune: lead.comune||'',
-        provincia: lead.provincia||'',
-        regione: lead.regione||'',
-        tags: ['lead'],
-        _isLead: true,
-        _leadId: lead.id
-      };
-      // Aggiungi ai contatti in memoria
-      if(!contacts.find(c=>c.id===tempContact.id)){
-        contacts.push(tempContact);
+      const tid = 'lead_'+lead.id;
+      if(!contacts.find(c=>c.id===tid)){
+        contacts.push({id:tid,nome:lead.ragione_sociale||'',email:lead.email,
+          telefono:lead.telefono||'',cellulare:lead.cellulare||'',
+          comune:lead.comune||'',provincia:lead.provincia||'',
+          regione:lead.regione||'',tags:['lead'],_isLead:true});
       }
-      if(!(listaTarget.contatti||[]).includes(tempContact.id)){
-        listaTarget.contatti = [...(listaTarget.contatti||[]), tempContact.id];
+      if(!(listaTarget.contatti||[]).includes(tid)){
+        listaTarget.contatti = [...(listaTarget.contatti||[]), tid];
         aggiunti++;
       }
     }
   }
-
   salvaListeDist();
-  showToast(`✅ ${aggiunti} lead aggiunti alla lista "${listaTarget.nome}"!`,'success');
+  closeModal();
+  showToast('Aggiunti '+aggiunti+' lead alla lista!','success');
 }
 
 </script>
