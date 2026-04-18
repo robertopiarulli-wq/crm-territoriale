@@ -3706,9 +3706,10 @@ function buildLeadCard(l){
         ${l.note?`<div style="font-size:12px;color:var(--muted);margin-top:4px">${esc(l.note)}</div>`:''}
       </div>
       <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
+        <button data-lid="${lid}" onclick="apriSchedaLead(this.dataset.lid)" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:700">🔍 Scheda</button>
         ${l.stato!=='importato'?`<button data-lid="${lid}" onclick="importaLeadInCRM(this.dataset.lid)" style="background:rgba(34,197,94,.12);color:var(--success);border:1px solid rgba(34,197,94,.3);border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:700">➕ Importa</button>`:''}
+        ${l.email?`<button data-lid="${lid}" onclick="campagnaLeadSingolo(this.dataset.lid)" style="background:rgba(249,115,22,.1);color:var(--accent);border:1px solid rgba(249,115,22,.3);border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:700">📧 Email</button>`:''}
         ${waHref?`<a href="${waHref}" target="_blank" style="background:rgba(37,211,102,.12);color:#25d366;border:1px solid rgba(37,211,102,.3);border-radius:7px;padding:5px 10px;font-size:11px;text-decoration:none;text-align:center;font-weight:700">WA</a>`:''}
-        ${mailHref?`<a href="${mailHref}" style="background:rgba(249,115,22,.1);color:var(--accent);border:1px solid rgba(249,115,22,.3);border-radius:7px;padding:5px 10px;font-size:11px;text-decoration:none;text-align:center">✉</a>`:''}
         <select data-lid="${lid}" onchange="aggiornaStatoLead(this.dataset.lid,this.value);this.value=''" style="font-size:10px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">
           <option value="">Stato...</option>
           <option value="contattato">🟡 Contattato</option>
@@ -3718,6 +3719,7 @@ function buildLeadCard(l){
           <option value="chiuso">🟢 Chiuso</option>
           <option value="ignorato">🔴 Ignora</option>
         </select>
+        <button data-lid="${lid}" onclick="eliminaLead(this.dataset.lid)" style="background:rgba(239,68,68,.1);color:var(--danger);border:1px solid rgba(239,68,68,.3);border-radius:7px;padding:5px 8px;font-size:11px;cursor:pointer">🗑</button>
       </div>
     </div>
     <div style="font-size:10px;color:var(--muted);margin-top:8px;font-family:'DM Mono',monospace;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
