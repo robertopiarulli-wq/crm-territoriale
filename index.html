@@ -4104,6 +4104,89 @@ function aggiornaContatoreCampagna(){
   badge.textContent = Math.min(lista.length, MAX_GIORNO);
 }
 
+function apriSchedaLead(id){
+  const l = leadData.find(x=>String(x.id)===String(id));
+  if(!l) return;
+  const statoColor = {nuovo:'#3b82f6',contattato:'#f59e0b',inviato:'#a855f7',risposto:'#06b6d4',trattativa:'#f97316',chiuso:'#22c55e',importato:'#22c55e',ignorato:'#ef4444'}[l.stato]||'#94a3b8';
+  const lid = String(l.id);
+  const inp = (id,val) => `<input id="${id}" value="${esc(val||'')}" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px;box-sizing:border-box">`;
+
+  document.getElementById('modal-title').textContent = '🎯 ' + (l.ragione_sociale||'Lead');
+  document.getElementById('modal-content').innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:14px">' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+    '<span style="background:'+statoColor+'22;color:'+statoColor+';border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700">'+(l.stato||'nuovo')+'</span>' +
+    '<span style="background:var(--surface);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--muted)">'+(l.fonte||'manuale')+'</span>' +
+    (l.categoria?'<span style="background:var(--surface);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--muted)">'+esc(l.categoria)+'</span>':'') +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+    '<div><label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px">RAGIONE SOCIALE</label>'+inp('sl-nome',l.ragione_sociale)+'</div>' +
+    '<div><label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px">AZIENDA</label>'+inp('sl-azienda',l.azienda)+'</div>' +
+    '<div><label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px">TELEFONO</label>'+inp('sl-tel',l.telefono)+'</div>' +
+    '<div><label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px">CELLULARE</label>'+inp('sl-cell',l.cellulare)+'</div>' +
+    '<div class="span-2"><label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px">EMAIL</label>'+inp('sl-email',l.email)+'</div>' +
+    '<div><label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px">COMUNE</label>'+inp('sl-comune',l.comune)+'</div>' +
+    '<div><label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px">SITO WEB</label>'+inp('sl-web',l.sito_web)+'</div>' +
+    '<div class="span-2"><label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px">INTERESSE</label>'+inp('sl-interesse',l.interesse)+'</div>' +
+    '<div class="span-2"><label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px">NOTE</label>' +
+    '<textarea id="sl-note" rows="2" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px;box-sizing:border-box;resize:vertical">'+esc(l.note||'')+'</textarea></div>' +
+    '</div>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">' +
+    '<button class="btn-secondary" onclick="closeModal()">Annulla</button>' +
+    '<button class="btn-primary" data-lid="'+lid+'" onclick="salvaSchedaLead(this.dataset.lid)">💾 Salva</button>' +
+    '</div></div>';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+
+async function salvaSchedaLead(id){
+  const update = {
+    ragione_sociale: document.getElementById('sl-nome')?.value.trim(),
+    azienda:         document.getElementById('sl-azienda')?.value.trim()||null,
+    telefono:        document.getElementById('sl-tel')?.value.trim()||null,
+    cellulare:       document.getElementById('sl-cell')?.value.trim()||null,
+    email:           document.getElementById('sl-email')?.value.trim()||null,
+    comune:          document.getElementById('sl-comune')?.value.trim()||null,
+    sito_web:        document.getElementById('sl-web')?.value.trim()||null,
+    interesse:       document.getElementById('sl-interesse')?.value.trim()||null,
+    note:            document.getElementById('sl-note')?.value.trim()||null,
+  };
+  if(useCloud){
+    const {error} = await supabaseClient.from('lead_scouting').update(update).eq('id',String(id));
+    if(error){ showToast('Errore salvataggio','danger'); return; }
+  }
+  const lead = leadData.find(x=>String(x.id)===String(id));
+  if(lead) Object.assign(lead, update);
+  closeModal();
+  renderLead();
+  showToast('✅ Lead aggiornato','success');
+}
+
+async function eliminaLead(id){
+  if(!confirm('Eliminare questo lead definitivamente?')) return;
+  if(useCloud){
+    const {error} = await supabaseClient.from('lead_scouting').delete().eq('id',String(id));
+    if(error){ showToast('Errore eliminazione','danger'); return; }
+  }
+  leadData = leadData.filter(x=>String(x.id)!==String(id));
+  renderLead();
+  showToast('🗑 Lead eliminato','success');
+}
+
+function campagnaLeadSingolo(id){
+  const l = leadData.find(x=>String(x.id)===String(id));
+  if(!l||!l.email){ showToast('Email non disponibile','warn'); return; }
+  // Converti lead in formato contatto per riusare la campagna
+  const fakeContact = {
+    id: l.id, nome: l.ragione_sociale||'', email: l.email,
+    comune: l.comune||'', provincia: l.provincia||'',
+    regione: l.regione||'', tags:[]
+  };
+  campagnaLista = [fakeContact];
+  campagnaIndex = 0;
+  mostraModaleInvio();
+}
+
 </script>
 </body>
 </html>
