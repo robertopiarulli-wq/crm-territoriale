@@ -4407,7 +4407,7 @@ function mostraModaleWA(){
     '<div style="font-size:12px;color:var(--muted)">📱 '+esc(c.cellulare)+(c.comune?' · '+esc(c.comune):'')+'</div></div>' +
     '<span style="background:var(--accent)22;color:var(--accent);border-radius:20px;padding:3px 10px;font-size:11px">'+rimasti+' rimasti</span>' +
     '</div>' +
-    '<div style="background:var(--surface);border-radius:10px;padding:14px;font-size:13px;line-height:1.6;color:var(--text);white-space:pre-wrap">'+WA_TESTO_DEFAULT+'</div>' +
+    '<div style="background:var(--surface);border-radius:10px;padding:14px;font-size:13px;line-height:1.6;color:var(--text);white-space:pre-wrap">'+testoPersonalizzato+'</div>' +
     '<div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2)">' +
     '1. Clicca <strong>💬 Apri WhatsApp</strong> → si apre con il testo precompilato<br>' +
     '2. Modifica se vuoi e invia<br>' +
@@ -4745,8 +4745,8 @@ function eseguiCampagnaWADash(){
 
   if(sel==='generica'){ _lanciaCampagnaWADashGenerica(); return; }
 
-  const camp = campagneData.find(c=>c.id===sel);
-  if(camp) lanciaCampagnaWA(camp.id);
+  // Usa lanciaCampagnaWA che gestisce già target e _campagna
+  lanciaCampagnaWA(sel);
 }
 
 function _lanciaCampagnaWADashGenerica(){
