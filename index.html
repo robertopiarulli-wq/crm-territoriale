@@ -4355,7 +4355,7 @@ let waCampagnaLista = [];
 let waCampagnaIndex = 0;
 
 const WA_TESTO_DEFAULT = `Buongiorno, sono Roberto Piarulli di Podopiu Medical Solutions.
-Stiamo aggiornando il listino riservato per i professionisti della Sua zona.
+Stiamo aggiornando il listino riservato con QUOTAZIONI PERSONALIZZATE per i professionisti della Sua zona.
 Vorremmo inviarLe le nostre ultime promo e il configuratore preventivi personalizzato.
 
 Può lasciarci la Sua email? O clicchi direttamente qui:
@@ -4708,21 +4708,60 @@ function _lanciaCampagnaDashGenerica(){
 }
 
 function avviaCampagnaWADash(){
-  const tipo  = document.getElementById('dash-filter-tipo')?.value||'';
-  const prov  = document.getElementById('dash-filter-prov')?.value||'';
+  if(!campagneData.length){
+    _lanciaCampagnaWADashGenerica();
+    return;
+  }
+
+  document.getElementById('modal-title').textContent = 'Scegli campagna WA';
+  const opzioni = campagneData.filter(c=>c.tipo!=='email').map(c=>
+    '<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:10px;cursor:pointer;margin-bottom:6px">' +
+    '<input type="radio" name="camp-wa-sel" value="'+c.id+'" style="accent-color:#25d366">' +
+    '<div><div style="font-weight:700">'+esc(c.nome)+'</div>' +
+    '<div style="font-size:11px;color:var(--muted)">'+esc(c.tag)+' · Inviati: '+(c.inviati||0)+'</div></div>' +
+    '</label>'
+  ).join('');
+
+  document.getElementById('modal-content').innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:12px">' +
+    '<div>'+opzioni+'</div>' +
+    '<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:10px;cursor:pointer">' +
+    '<input type="radio" name="camp-wa-sel" value="generica" style="accent-color:#25d366">' +
+    '<div><div style="font-weight:700">💬 Campagna WA generica</div>' +
+    '<div style="font-size:11px;color:var(--muted)">Testo standard predefinito</div></div>' +
+    '</label>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+    '<button class="btn-secondary" onclick="closeModal()">Annulla</button>' +
+    '<button class="btn-primary" style="background:#25d366;border-color:#25d366" onclick="eseguiCampagnaWADash()">💬 Lancia</button>' +
+    '</div></div>';
+
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function eseguiCampagnaWADash(){
+  const sel = document.querySelector('input[name="camp-wa-sel"]:checked')?.value;
+  if(!sel){ showToast('Seleziona una campagna','warn'); return; }
+  closeModal();
+
+  if(sel==='generica'){ _lanciaCampagnaWADashGenerica(); return; }
+
+  const camp = campagneData.find(c=>c.id===sel);
+  if(camp) lanciaCampagnaWA(camp.id);
+}
+
+function _lanciaCampagnaWADashGenerica(){
+  const tipo = document.getElementById('dash-filter-tipo')?.value||'';
+  const prov = document.getElementById('dash-filter-prov')?.value||'';
 
   let items = getDashData().filter(i=>i.cellulare&&!i.tags.includes('wa-configuratore'));
   if(tipo) items = items.filter(i=>i._tipo===tipo);
   if(prov) items = items.filter(i=>i.provincia===prov);
 
-  if(!items.length){ showToast('Nessun record con cellulare (esclusi già inviati)','warn'); return; }
+  if(!items.length){ showToast('Nessun record con cellulare disponibile','warn'); return; }
 
   waCampagnaLista = items.slice(0,50).map(i=>({
-    id:        i._id,
-    nome:      i.nome,
-    cellulare: i.cellulare,
-    comune:    i.comune||'',
-    tags:      i.tags||[]
+    id: i._id, nome: i.nome, cellulare: i.cellulare,
+    comune: i.comune||'', tags: i.tags||[]
   }));
   waCampagnaIndex = 0;
   mostraModaleWA();
