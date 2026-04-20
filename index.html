@@ -258,6 +258,7 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
 
   <!-- TAB BAR -->
   <div id="tabbar">
+    <button class="tab-btn" onclick="switchTab('dashboard')" id="tab-dashboard">🏠 Dashboard</button>
     <button class="tab-btn active" onclick="switchTab('lista')" id="tab-lista">📋 Contatti</button>
     <button class="tab-btn" onclick="switchTab('mappa')" id="tab-mappa">🗺 Mappa</button>
     <button class="tab-btn" onclick="switchTab('lead')" id="tab-lead">🎯 Lead<span class="tab-count" id="tab-count-lead" style="display:none">0</span></button>
@@ -278,6 +279,62 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
   <div id="content">
 
     <!-- LISTA -->
+    <div class="panel" id="panel-dashboard">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-weight:800;font-size:18px">🏠 Dashboard</div>
+          <div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px">Vista unificata Lead + Contatti</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="renderDashboard()" class="btn-secondary" style="font-size:12px">🔄 Aggiorna</button>
+          <button onclick="avviaCampagnaGiornalieraDash()" class="btn-primary" style="font-size:12px">📧 Campagna Email</button>
+          <button onclick="avviaCampagnaWADash()" class="btn-primary" style="font-size:12px;background:#25d366;border-color:#25d366">💬 Campagna WA</button>
+        </div>
+      </div>
+
+      <!-- FILTRI -->
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+        <select id="dash-filter-tipo" onchange="renderDashboard()" style="width:auto;font-size:13px">
+          <option value="">Tutti</option>
+          <option value="contatto">👤 Contatti</option>
+          <option value="lead">🎯 Lead</option>
+        </select>
+        <select id="dash-filter-stato" onchange="renderDashboard()" style="width:auto;font-size:13px">
+          <option value="">Tutti gli stati</option>
+          <option value="nuovo">🔵 Nuovo</option>
+          <option value="contattato">🟡 Contattato</option>
+          <option value="inviato">🟣 Link Inviato</option>
+          <option value="risposto">🩵 Ha Risposto</option>
+          <option value="trattativa">🟠 In Trattativa</option>
+          <option value="chiuso">🟢 Chiuso</option>
+          <option value="ignorato">🔴 Ignorato</option>
+        </select>
+        <select id="dash-filter-fonte" onchange="renderDashboard()" style="width:auto;font-size:13px">
+          <option value="">Tutte le fonti</option>
+          <option value="google_maps">🗺 Google Maps</option>
+          <option value="pagine_gialle">📒 Pagine Gialle</option>
+          <option value="preventivopro">📋 PreventivoPro</option>
+          <option value="manuale">✏️ Manuale</option>
+        </select>
+        <select id="dash-filter-prov" onchange="renderDashboard()" style="width:auto;font-size:13px">
+          <option value="">Tutte le province</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="dash-solo-email" onchange="renderDashboard()"> Solo con email
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="dash-solo-cell" onchange="renderDashboard()"> Solo con cellulare
+        </label>
+        <div id="dash-counter" style="margin-left:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:12px;font-family:'DM Mono',monospace;color:var(--muted)">0 record</div>
+      </div>
+
+      <!-- KPI MINI -->
+      <div id="dash-kpi" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px"></div>
+
+      <!-- LISTA -->
+      <div id="dash-list"></div>
+    </div>
+
     <div class="panel active" id="panel-lista">
       <div class="stats-bar" id="stats-bar"></div>
       <div class="toolbar">
@@ -842,6 +899,7 @@ function switchTab(tab){
   if(tab==='pipeline') renderPipeline();
   if(tab==='attivita') loadAttivita().then(()=>renderAttivita());
   if(tab==='lead') loadLead().then(()=>renderLead());
+  if(tab==='dashboard') { loadLead().then(()=>renderDashboard()); }
   if(tab==='qualita') renderQualita();
   if(tab==='agenda') loadAttivita().then(()=>renderAgenda());
   if(tab==='kpi') loadAttivita().then(()=>renderKPI());
@@ -4336,6 +4394,219 @@ async function segnaInviatoWA(contactId){
 
 function saltaContattoWA(){
   waCampagnaIndex++;
+  mostraModaleWA();
+}
+
+// ══════════════════════════════════════════════════════════════
+// DASHBOARD UNIFICATA
+// ══════════════════════════════════════════════════════════════
+
+function getDashData(){
+  // Unifica lead e contatti in un unico array normalizzato
+  const items = [];
+
+  // LEAD
+  for(const l of leadData){
+    items.push({
+      _tipo:    'lead',
+      _id:      String(l.id),
+      nome:     l.ragione_sociale||'',
+      azienda:  l.azienda||'',
+      email:    l.email||'',
+      telefono: l.telefono||'',
+      cellulare:l.cellulare||'',
+      comune:   l.comune||'',
+      provincia:l.provincia||'',
+      regione:  l.regione||'',
+      stato:    l.stato||'nuovo',
+      fonte:    l.fonte||'manuale',
+      tags:     [],
+      interesse:l.interesse||'',
+      ultimoContatto: l.created_at||'',
+      _raw:     l
+    });
+  }
+
+  // CONTATTI (escludi archiviati)
+  for(const c of contacts){
+    if((c.tags||[]).includes('cancellato')) continue;
+    // Evita duplicati per email
+    const emailDup = c.email && items.find(i=>i._tipo==='lead'&&i.email&&i.email.toLowerCase()===c.email.toLowerCase());
+    if(emailDup){ emailDup._contactId = c.id; continue; }
+    items.push({
+      _tipo:    'contatto',
+      _id:      String(c.id),
+      nome:     c.nome||'',
+      azienda:  c.azienda||'',
+      email:    c.email||'',
+      telefono: c.telefono||'',
+      cellulare:c.cellulare||'',
+      comune:   c.comune||'',
+      provincia:c.provincia||'',
+      regione:  c.regione||'',
+      stato:    (c.tags||[]).includes('email-configuratore')?'inviato':
+                (c.tags||[]).includes('prospect')?'contattato':'nuovo',
+      fonte:    c.fonte||'',
+      tags:     c.tags||[],
+      interesse:'',
+      ultimoContatto: c.ultimoContatto||'',
+      _raw:     c
+    });
+  }
+
+  return items;
+}
+
+function renderDashboard(){
+  const el = document.getElementById('dash-list');
+  if(!el) return;
+
+  const tipo      = document.getElementById('dash-filter-tipo')?.value||'';
+  const stato     = document.getElementById('dash-filter-stato')?.value||'';
+  const fonte     = document.getElementById('dash-filter-fonte')?.value||'';
+  const prov      = document.getElementById('dash-filter-prov')?.value||'';
+  const soloEmail = document.getElementById('dash-solo-email')?.checked;
+  const soloCell  = document.getElementById('dash-solo-cell')?.checked;
+
+  let items = getDashData();
+
+  // Popola province
+  const selProv = document.getElementById('dash-filter-prov');
+  if(selProv){
+    const cur = selProv.value;
+    const provs = [...new Set(items.map(i=>i.provincia).filter(Boolean))].sort();
+    selProv.innerHTML = '<option value="">Tutte le province</option>' +
+      provs.map(p=>'<option value="'+p+'" '+(p===cur?'selected':'')+'>'+p+'</option>').join('');
+  }
+
+  if(tipo)      items = items.filter(i=>i._tipo===tipo);
+  if(stato)     items = items.filter(i=>i.stato===stato);
+  if(fonte)     items = items.filter(i=>i.fonte===fonte);
+  if(prov)      items = items.filter(i=>i.provincia===prov);
+  if(soloEmail) items = items.filter(i=>i.email);
+  if(soloCell)  items = items.filter(i=>i.cellulare);
+
+  // KPI mini
+  const kpiEl = document.getElementById('dash-kpi');
+  if(kpiEl){
+    const tot     = items.length;
+    const conEmail= items.filter(i=>i.email).length;
+    const conCell = items.filter(i=>i.cellulare).length;
+    const nuovi   = items.filter(i=>i.stato==='nuovo').length;
+    const risposto= items.filter(i=>i.stato==='risposto').length;
+    const kpis = [
+      {label:'Totale',  val:tot,      color:'#6366f1'},
+      {label:'Con email',val:conEmail, color:'#f97316'},
+      {label:'Con cell', val:conCell,  color:'#25d366'},
+      {label:'Nuovi',    val:nuovi,    color:'#3b82f6'},
+      {label:'Risposto', val:risposto, color:'#06b6d4'},
+    ];
+    kpiEl.innerHTML = kpis.map(k=>
+      '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 16px;text-align:center;flex:1;min-width:80px;border-top:3px solid '+k.color+'">' +
+      '<div style="font-size:22px;font-weight:900;color:'+k.color+'">'+k.val+'</div>' +
+      '<div style="font-size:10px;color:var(--muted);margin-top:2px">'+k.label+'</div></div>'
+    ).join('');
+  }
+
+  const counter = document.getElementById('dash-counter');
+  if(counter) counter.textContent = items.length+' record';
+
+  if(!items.length){
+    el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted)"><div style="font-size:36px;margin-bottom:12px">🔍</div><div>Nessun record trovato</div></div>';
+    return;
+  }
+
+  el.innerHTML = items.map(item => buildDashCard(item)).join('');
+}
+
+function buildDashCard(item){
+  const statoColors = {nuovo:'#3b82f6',contattato:'#f59e0b',inviato:'#a855f7',risposto:'#06b6d4',trattativa:'#f97316',chiuso:'#22c55e',importato:'#22c55e',ignorato:'#ef4444'};
+  const statoLabels = {nuovo:'Nuovo',contattato:'Contattato',inviato:'Link Inviato',risposto:'Ha Risposto',trattativa:'In Trattativa',chiuso:'Chiuso',importato:'Importato',ignorato:'Ignorato'};
+  const sc = statoColors[item.stato]||'#94a3b8';
+  const sl = statoLabels[item.stato]||item.stato;
+  const waHref = item.cellulare ? 'https://wa.me/'+waNum(item.cellulare) : '';
+  const dataStr = item.ultimoContatto ? new Date(item.ultimoContatto).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'}) : '';
+
+  return '<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid '+sc+';border-radius:12px;padding:14px 16px;margin-bottom:8px;transition:border-color .2s">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">' +
+    '<div style="flex:1;min-width:0">' +
+    // Riga 1: nome + badge tipo + stato
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">' +
+    '<span style="font-weight:700;font-size:14px">'+esc(item.nome)+'</span>' +
+    '<span style="background:var(--surface);border-radius:20px;padding:2px 8px;font-size:10px;color:var(--muted);font-weight:600">'+(item._tipo==='lead'?'🎯 Lead':'👤 Contatto')+'</span>' +
+    '<span style="background:'+sc+'22;color:'+sc+';border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700">'+sl+'</span>' +
+    (item.fonte?'<span style="background:var(--surface);border-radius:20px;padding:2px 8px;font-size:10px;color:var(--muted)">'+esc(item.fonte)+'</span>':'') +
+    '</div>' +
+    // Riga 2: contatti
+    '<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin-bottom:4px">' +
+    (item.telefono?'<span>📞 '+esc(item.telefono)+'</span>':'') +
+    (item.cellulare?'<span>📱 '+esc(item.cellulare)+'</span>':'') +
+    (item.email?'<span>✉ '+esc(item.email)+'</span>':'') +
+    (item.comune?'<span>📍 '+esc(item.comune)+(item.provincia?' ('+item.provincia+')':'')+'</span>':'') +
+    '</div>' +
+    // Riga 3: tag + interesse
+    ((item.tags&&item.tags.length)?'<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">'+item.tags.slice(0,5).map(t=>'<span style="background:var(--surface);border-radius:4px;padding:2px 7px;font-size:10px;color:var(--muted)">'+esc(t)+'</span>').join('')+'</div>':'') +
+    (item.interesse?'<div style="font-size:12px;color:var(--muted);margin-top:4px">🎯 '+esc(item.interesse)+'</div>':'') +
+    (dataStr?'<div style="font-size:10px;color:var(--muted);margin-top:4px;font-family:DM Mono,monospace">Ultimo contatto: '+dataStr+'</div>':'') +
+    '</div>' +
+    // Azioni
+    '<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">' +
+    '<button data-id="'+item._id+'" data-tipo="'+item._tipo+'" onclick="apriSchedaDash(this.dataset.id,this.dataset.tipo)" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:700">🔍 Scheda</button>' +
+    (item.email?'<button data-id="'+item._id+'" data-tipo="'+item._tipo+'" onclick="emailDashSingolo(this.dataset.id,this.dataset.tipo)" style="background:rgba(249,115,22,.1);color:var(--accent);border:1px solid rgba(249,115,22,.3);border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:700">📧 Email</button>':'') +
+    (waHref?'<a href="'+waHref+'" target="_blank" style="background:rgba(37,211,102,.12);color:#25d366;border:1px solid rgba(37,211,102,.3);border-radius:7px;padding:5px 10px;font-size:11px;text-decoration:none;text-align:center;font-weight:700">💬 WA</a>':'') +
+    (item._tipo==='lead'&&item.stato!=='importato'?'<button data-id="'+item._id+'" onclick="importaLeadInCRM(this.dataset.id)" style="background:rgba(34,197,94,.12);color:var(--success);border:1px solid rgba(34,197,94,.3);border-radius:7px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:700">➕ Importa</button>':'') +
+    '</div>' +
+    '</div></div>';
+}
+
+function apriSchedaDash(id, tipo){
+  if(tipo==='lead') apriSchedaLead(id);
+  else { const c = contacts.find(x=>String(x.id)===String(id)); if(c) editContact(c.id); }
+}
+
+function emailDashSingolo(id, tipo){
+  if(tipo==='lead'){ campagnaLeadSingolo(id); return; }
+  const c = contacts.find(x=>String(x.id)===String(id));
+  if(!c||!c.email){ showToast('Email non disponibile','warn'); return; }
+  campagnaLista = [c]; campagnaIndex = 0; mostraModaleInvio();
+}
+
+function avviaCampagnaGiornalieraDash(){
+  // Prendi tutti con email dai filtri attivi
+  const tipo  = document.getElementById('dash-filter-tipo')?.value||'';
+  const stato = document.getElementById('dash-filter-stato')?.value||'';
+  const prov  = document.getElementById('dash-filter-prov')?.value||'';
+  const soloEmail = document.getElementById('dash-solo-email')?.checked;
+
+  let items = getDashData().filter(i=>i.email);
+  if(tipo)  items = items.filter(i=>i._tipo===tipo);
+  if(stato) items = items.filter(i=>i.stato===stato);
+  if(prov)  items = items.filter(i=>i.provincia===prov);
+
+  // Converti in formato contatto per campagna
+  campagnaLista = items.slice(0,50).map(i=>({
+    id: i._id, nome: i.nome, email: i.email,
+    comune: i.comune, provincia: i.provincia, regione: i.regione, tags: i.tags
+  }));
+  campagnaIndex = 0;
+  if(!campagnaLista.length){ showToast('Nessun record con email nei filtri','warn'); return; }
+  mostraModaleInvio();
+}
+
+function avviaCampagnaWADash(){
+  const tipo  = document.getElementById('dash-filter-tipo')?.value||'';
+  const prov  = document.getElementById('dash-filter-prov')?.value||'';
+
+  let items = getDashData().filter(i=>i.cellulare);
+  if(tipo) items = items.filter(i=>i._tipo===tipo);
+  if(prov) items = items.filter(i=>i.provincia===prov);
+
+  waCampagnaLista = items.slice(0,50).map(i=>({
+    id: i._id, nome: i.nome, cellulare: i.cellulare,
+    comune: i.comune, tags: i.tags
+  }));
+  waCampagnaIndex = 0;
+  if(!waCampagnaLista.length){ showToast('Nessun record con cellulare nei filtri','warn'); return; }
   mostraModaleWA();
 }
 
