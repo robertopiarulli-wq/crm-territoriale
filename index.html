@@ -269,6 +269,7 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
     <button class="tab-btn" onclick="switchTab('attivita')" id="tab-attivita">📝 Attività</button>
     <button class="tab-btn" onclick="switchTab('agenda')" id="tab-agenda">📅 Agenda<span class='tab-count' id='tab-count-agenda' style='display:none'>0</span></button>
     <button class="tab-btn" onclick="switchTab('kpi')" id="tab-kpi">📈 KPI</button>
+    <button class="tab-btn" onclick="switchTab('campagne')" id="tab-campagne">📣 Campagne</button>
     <button class="tab-btn" onclick="switchTab('qualita')" id="tab-qualita">🔍 Qualità</button>
     <button class="tab-btn archivio-tab" onclick="switchTab('archivio')" id="tab-archivio">🗑 Archivio<span class='tab-count' id='tab-count-archivio' style='display:none;background:rgba(239,68,68,.7)'>0</span></button>
   </div>
@@ -681,6 +682,17 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
 
     <!-- ARCHIVIO CANCELLATI -->
     <!-- QUALITÀ CONTATTI -->
+    <div class="panel" id="panel-campagne">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-weight:800;font-size:18px">📣 Campagne</div>
+          <div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px">Gestisci campagne Email e WA con tag univoci</div>
+        </div>
+        <button onclick="apriNuovaCampagna()" class="btn-primary" style="font-size:12px">➕ Nuova Campagna</button>
+      </div>
+      <div id="campagne-list"></div>
+    </div>
+
     <div class="panel" id="panel-qualita">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
         <div style="font-weight:800;font-size:18px">🔍 Qualità Contatti</div>
@@ -897,6 +909,7 @@ function switchTab(tab){
   if(tab==='pipeline') renderPipeline();
   if(tab==='attivita') loadAttivita().then(()=>renderAttivita());
   if(tab==='lead') loadLead().then(()=>renderLead());
+  if(tab==='campagne') loadCampagne().then(()=>renderCampagne());
   if(tab==='dashboard') { loadLead().then(()=>renderDashboard()); }
   if(tab==='qualita') renderQualita();
   if(tab==='agenda') loadAttivita().then(()=>renderAgenda());
@@ -3954,6 +3967,23 @@ function avviaCampagnaGiornaliera(){
 }
 
 function generaTestoEmail(c){
+  // Se ha una campagna associata usa il suo testo
+  if(c._campagna && c._campagna.corpo_email){
+    const camp  = c._campagna;
+    const lid   = c.id;
+    const citta = c.comune||PROVINCE[c.provincia]?.n||c.provincia||'';
+    const link  = camp.link_promo||LINK_PREVENTIVI;
+    const pixel = `<img src="${TRACKING_BASE}?lid=${lid}&c=${camp.tag}" width="1" height="1" style="display:none">`;
+    const corpo = camp.corpo_email
+      .replace(/{nome}/g, esc(c.nome||''))
+      .replace(/{citta}/g, esc(citta))
+      .replace(/{link}/g, link);
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:14px;color:#333;max-width:600px;margin:0 auto;padding:20px;line-height:1.6;background:#fff}.footer{margin-top:32px;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:16px}</style></head><body>${corpo.replace(/\n/g,'<br>')}<div class="footer">Per non ricevere ulteriori comunicazioni <a href="https://preventivopro.vercel.app/cancella?ref=REF_PLACEHOLDER&c=CAMP_PLACEHOLDER" style="color:#f97316">clicca qui</a>.</div>${pixel}</body></html>`;
+    const oggetto = camp.oggetto_email||'Comunicazione riservata';
+    const htmlFixed = html.replace('REF_PLACEHOLDER', lid).replace('CAMP_PLACEHOLDER', camp.tag);
+    const plain = corpo.replace(/<[^>]+>/g,'');
+    return { oggetto, html:htmlFixed, plain };
+  }
   const regione = c.regione || (
     ['BA','BT','BR','FG','LE','TA'].includes(c.provincia) ? 'Puglia' :
     ['PZ','MT'].includes(c.provincia) ? 'Basilicata' :
@@ -4134,7 +4164,14 @@ async function segnaInviato(contactId){
   const c = contacts.find(x=>x.id===contactId);
   if(c){
     const tags = c.tags||[];
-    if(!tags.includes('email-configuratore')) tags.push('email-configuratore');
+    const campTag = campagnaLista[campagnaIndex-1]?._campagna?.tag||'email-configuratore';
+    if(!tags.includes(campTag)) tags.push(campTag);
+    // Aggiorna contatore campagna
+    if(campagnaLista[campagnaIndex-1]?._campagna?.id){
+      const cid = campagnaLista[campagnaIndex-1]._campagna.id;
+      const camp = campagneData.find(x=>x.id===cid);
+      if(camp){ camp.inviati=(camp.inviati||0)+1; supabaseClient.from('campagne').update({inviati:camp.inviati}).eq('id',cid).then(()=>{}); }
+    }
     c.tags = tags;
     await dbUpsert(c);
     // Aggiorna anche lead se collegato
@@ -4351,7 +4388,15 @@ function mostraModaleWA(){
   const c = waCampagnaLista[waCampagnaIndex];
   const rimasti = waCampagnaLista.length - waCampagnaIndex - 1;
   const cell = waNum(c.cellulare||'');
-  const testo = encodeURIComponent(WA_TESTO_DEFAULT);
+  const campagna = c._campagna;
+  const testoBase = campagna?.testo_wa || WA_TESTO_DEFAULT;
+  const citta = c.comune||'';
+  const link = campagna?.link_promo||'https://preventivopro.vercel.app/configura';
+  const testoPersonalizzato = testoBase
+    .replace(/{nome}/g, c.nome||'')
+    .replace(/{citta}/g, citta)
+    .replace(/{link}/g, link);
+  const testo = encodeURIComponent(testoPersonalizzato);
   const waUrl = 'https://wa.me/'+cell+'?text='+testo;
 
   document.getElementById('modal-title').textContent = '💬 WA Campagna '+( waCampagnaIndex+1)+'/'+waCampagnaLista.length;
@@ -4382,7 +4427,13 @@ async function segnaInviatoWA(contactId){
   const c = contacts.find(x=>String(x.id)===String(contactId));
   if(c){
     const tags = c.tags||[];
-    if(!tags.includes('wa-configuratore')) tags.push('wa-configuratore');
+    const waCampTag = waCampagnaLista[waCampagnaIndex-1]?._campagna?.tag||'wa-configuratore';
+    if(!tags.includes(waCampTag)) tags.push(waCampTag);
+    if(waCampagnaLista[waCampagnaIndex-1]?._campagna?.id){
+      const cid = waCampagnaLista[waCampagnaIndex-1]._campagna.id;
+      const camp = campagneData.find(x=>x.id===cid);
+      if(camp){ camp.inviati=(camp.inviati||0)+1; supabaseClient.from('campagne').update({inviati:camp.inviati}).eq('id',cid).then(()=>{}); }
+    }
     c.tags = tags;
     await dbUpsert(c);
   }
@@ -4613,6 +4664,246 @@ function avviaCampagnaWADash(){
     tags:      i.tags||[]
   }));
   waCampagnaIndex = 0;
+  mostraModaleWA();
+}
+
+// ══════════════════════════════════════════════════════════════
+// CAMPAGNE
+// ══════════════════════════════════════════════════════════════
+let campagneData = [];
+
+async function loadCampagne(){
+  if(!useCloud){ campagneData=[]; return; }
+  const {data,error} = await supabaseClient.from('campagne').select('*').order('created_at',{ascending:false});
+  if(!error) campagneData = data||[];
+}
+
+function renderCampagne(){
+  const el = document.getElementById('campagne-list');
+  if(!el) return;
+  if(!campagneData.length){
+    el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted)"><div style="font-size:36px;margin-bottom:12px">📣</div><div style="font-weight:700;margin-bottom:6px">Nessuna campagna</div><div style="font-size:13px">Crea la tua prima campagna per iniziare</div></div>';
+    return;
+  }
+  el.innerHTML = campagneData.map(c => buildCampagnaCard(c)).join('');
+}
+
+function buildCampagnaCard(c){
+  const statoColor = {bozza:'#94a3b8',attiva:'#22c55e',completata:'#6366f1'}[c.stato]||'#94a3b8';
+  const tipoIcon   = {email:'📧',wa:'💬',entrambi:'📧💬'}[c.tipo]||'📧';
+  const dataStr    = c.created_at ? new Date(c.created_at).toLocaleDateString('it-IT') : '';
+
+  return '<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid '+statoColor+';border-radius:12px;padding:16px 18px;margin-bottom:10px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">' +
+    '<div style="flex:1">' +
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">' +
+    '<span style="font-weight:800;font-size:15px">'+tipoIcon+' '+esc(c.nome)+'</span>' +
+    '<span style="background:'+statoColor+'22;color:'+statoColor+';border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700">'+c.stato+'</span>' +
+    '<code style="background:var(--surface);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--muted)">'+esc(c.tag)+'</code>' +
+    '</div>' +
+    (c.oggetto_email?'<div style="font-size:12px;color:var(--muted);margin-bottom:4px">📧 Oggetto: '+esc(c.oggetto_email)+'</div>':'') +
+    (c.link_promo?'<div style="font-size:12px;color:var(--accent);margin-bottom:4px">🔗 '+esc(c.link_promo)+'</div>':'') +
+    '<div style="display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:6px">' +
+    '<span>📤 Inviati: <strong>'+( c.inviati||0)+'</strong></span>' +
+    '<span>📅 '+dataStr+'</span>' +
+    '</div>' +
+    '</div>' +
+    '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">' +
+    (c.tipo!=='wa'?'<button data-cid="'+c.id+'" onclick="lanciaCampagnaEmail(this.dataset.cid)" style="background:rgba(249,115,22,.12);color:var(--accent);border:1px solid rgba(249,115,22,.3);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-weight:700">📧 Lancia Email</button>':'') +
+    (c.tipo!=='email'?'<button data-cid="'+c.id+'" onclick="lanciaCampagnaWA(this.dataset.cid)" style="background:rgba(37,211,102,.12);color:#25d366;border:1px solid rgba(37,211,102,.3);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-weight:700">💬 Lancia WA</button>':'') +
+    '<button data-cid="'+c.id+'" onclick="modificaCampagna(this.dataset.cid)" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer">✏️ Modifica</button>' +
+    '<button data-cid="'+c.id+'" onclick="eliminaCampagna(this.dataset.cid)" style="background:rgba(239,68,68,.1);color:var(--danger);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer">🗑</button>' +
+    '</div></div></div>';
+}
+
+function apriNuovaCampagna(id){
+  const c = id ? campagneData.find(x=>x.id===id) : null;
+  const isEdit = !!c;
+
+  document.getElementById('modal-title').textContent = isEdit ? '✏️ Modifica Campagna' : '➕ Nuova Campagna';
+  document.getElementById('modal-content').innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:14px">' +
+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+    '<div><label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:5px">NOME CAMPAGNA *</label>' +
+    '<input id="camp-nome" value="'+(c?esc(c.nome||''):'')+'" placeholder="es. Promo Maggio 2026" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px;box-sizing:border-box"></div>' +
+
+    '<div><label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:5px">TIPO</label>' +
+    '<select id="camp-tipo" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px">' +
+    '<option value="email" '+(c&&c.tipo==='email'?'selected':'')+'>📧 Solo Email</option>' +
+    '<option value="wa" '+(c&&c.tipo==='wa'?'selected':'')+'>💬 Solo WA</option>' +
+    '<option value="entrambi" '+(c&&c.tipo==='entrambi'?'selected':'')+'>📧💬 Email + WA</option>' +
+    '</select></div>' +
+    '</div>' +
+
+    '<div><label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:5px">TAG UNIVOCO * <span style="font-weight:400">(impedisce invii doppi)</span></label>' +
+    '<input id="camp-tag" value="'+(c?esc(c.tag||''):'')+'" placeholder="es. promo-maggio-2026" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px;box-sizing:border-box"></div>' +
+
+    '<div><label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:5px">🔗 LINK PROMO</label>' +
+    '<select id="camp-link" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px">' +
+    '<option value="https://preventivopro.vercel.app/configura" '+(c&&c.link_promo&&c.link_promo.includes('configura')?'selected':'')+'>Configuratore listino</option>' +
+    '<option value="https://preventivopro.vercel.app/richiesta/podopiu" '+(c&&c.link_promo&&c.link_promo.includes('richiesta')?'selected':'')+'>Richiesta preventivo</option>' +
+    '<option value="custom">✏️ URL personalizzato...</option>' +
+    '</select>' +
+    '<input id="camp-link-custom" placeholder="https://..." style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px;box-sizing:border-box;margin-top:6px;display:none"></div>' +
+
+    '<div id="camp-email-section"><label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:5px">📧 OGGETTO EMAIL</label>' +
+    '<input id="camp-oggetto" value="'+(c?esc(c.oggetto_email||''):'')+'" placeholder="es. Listino riservato professionisti 2026" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px;box-sizing:border-box"></div>' +
+
+    '<div id="camp-email-body"><label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:5px">📧 CORPO EMAIL <span style="font-weight:400;color:var(--muted)">(usa {nome}, {citta}, {link} come variabili)</span></label>' +
+    '<textarea id="camp-corpo" rows="6" placeholder="Ciao,&#10;&#10;..." style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px;box-sizing:border-box;resize:vertical">'+(c?esc(c.corpo_email||''):'')+'</textarea></div>' +
+
+    '<div id="camp-wa-section"><label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:5px">💬 TESTO WA <span style="font-weight:400;color:var(--muted)">(usa {nome}, {citta}, {link})</span></label>' +
+    '<textarea id="camp-wa" rows="5" placeholder="Buongiorno,&#10;..." style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px;box-sizing:border-box;resize:vertical">'+(c?esc(c.testo_wa||''):'')+'</textarea></div>' +
+
+    '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+    '<button class="btn-secondary" onclick="closeModal()">Annulla</button>' +
+    (isEdit?'<button class="btn-primary" data-cid="'+c.id+'" onclick="salvaCampagna(this.dataset.cid)">💾 Salva</button>':'<button class="btn-primary" onclick="salvaCampagna()">💾 Crea campagna</button>') +
+    '</div></div>';
+
+  // Toggle link custom
+  document.getElementById('camp-link').onchange = function(){
+    document.getElementById('camp-link-custom').style.display = this.value==='custom'?'block':'none';
+  };
+
+  // Toggle sezioni email/wa in base al tipo
+  const aggiornaTipo = () => {
+    const tipo = document.getElementById('camp-tipo').value;
+    document.getElementById('camp-email-section').style.display = tipo==='wa'?'none':'block';
+    document.getElementById('camp-email-body').style.display    = tipo==='wa'?'none':'block';
+    document.getElementById('camp-wa-section').style.display    = tipo==='email'?'none':'block';
+  };
+  document.getElementById('camp-tipo').onchange = aggiornaTipo;
+  aggiornaTipo();
+
+  // Auto-genera tag dal nome
+  if(!isEdit){
+    document.getElementById('camp-nome').oninput = function(){
+      const tag = this.value.toLowerCase().trim()
+        .replace(/[àáâ]/g,'a').replace(/[èéê]/g,'e').replace(/[ìíî]/g,'i')
+        .replace(/[òóô]/g,'o').replace(/[ùúû]/g,'u')
+        .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+      document.getElementById('camp-tag').value = tag;
+    };
+  }
+
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function modificaCampagna(id){ apriNuovaCampagna(id); }
+
+async function salvaCampagna(id){
+  const nome    = document.getElementById('camp-nome')?.value.trim();
+  const tipo    = document.getElementById('camp-tipo')?.value;
+  const tag     = document.getElementById('camp-tag')?.value.trim().toLowerCase().replace(/\s+/g,'-');
+  const linkSel = document.getElementById('camp-link')?.value;
+  const link    = linkSel==='custom' ? document.getElementById('camp-link-custom')?.value.trim() : linkSel;
+  const oggetto = document.getElementById('camp-oggetto')?.value.trim();
+  const corpo   = document.getElementById('camp-corpo')?.value.trim();
+  const testoWA = document.getElementById('camp-wa')?.value.trim();
+
+  if(!nome||!tag){ showToast('Nome e tag sono obbligatori','warn'); return; }
+
+  const payload = { nome, tipo, tag, link_promo:link, oggetto_email:oggetto, corpo_email:corpo, testo_wa:testoWA };
+
+  if(id){
+    const {error} = await supabaseClient.from('campagne').update(payload).eq('id',id);
+    if(error){ showToast('Errore: '+error.message,'danger'); return; }
+    const idx = campagneData.findIndex(c=>c.id===id);
+    if(idx>=0) campagneData[idx] = {...campagneData[idx],...payload};
+  } else {
+    const {data,error} = await supabaseClient.from('campagne').insert({...payload,stato:'bozza',inviati:0}).select().single();
+    if(error){ showToast('Errore: '+error.message,'danger'); return; }
+    campagneData.unshift(data);
+  }
+
+  closeModal();
+  renderCampagne();
+  showToast('✅ Campagna salvata!','success');
+}
+
+async function eliminaCampagna(id){
+  if(!confirm('Eliminare questa campagna?')) return;
+  const {error} = await supabaseClient.from('campagne').delete().eq('id',id);
+  if(error){ showToast('Errore: '+error.message,'danger'); return; }
+  campagneData = campagneData.filter(c=>c.id!==id);
+  renderCampagne();
+  showToast('🗑 Campagna eliminata','success');
+}
+
+async function lanciaCampagnaEmail(campagnaId){
+  const camp = campagneData.find(c=>c.id===campagnaId);
+  if(!camp){ showToast('Campagna non trovata','warn'); return; }
+
+  // Prendi tutti con email che NON hanno già il tag di questa campagna
+  const items = getDashData().filter(i=>i.email && !i.tags.includes(camp.tag));
+  if(!items.length){ showToast('Nessun destinatario disponibile (tutti già raggiunti)','warn'); return; }
+
+  // Prepara lista campagna con testo personalizzato
+  campagnaLista = items.slice(0,50).map(i=>({
+    id: i._id, nome: i.nome, email: i.email,
+    comune: i.comune, provincia: i.provincia, regione: i.regione,
+    tags: i.tags||[], _campagna: camp
+  }));
+  campagnaIndex = 0;
+  mostraModaleInvio();
+}
+
+async function lanciaCampagnaWA(campagnaId){
+  const camp = campagneData.find(c=>c.id===campagnaId);
+  if(!camp){ showToast('Campagna non trovata','warn'); return; }
+
+  // Tutti con cellulare non ancora raggiunti da questa campagna
+  const tutti = getDashData().filter(i=>i.cellulare && !i.tags.includes(camp.tag));
+  // Solo chi NON ha email (per raccoglierla via WA)
+  const soloCell = tutti.filter(i=>!i.email);
+
+  if(!tutti.length){ showToast('Nessun destinatario disponibile','warn'); return; }
+
+  // Mostra scelta destinatari
+  document.getElementById('modal-title').textContent = '💬 Lancia Campagna WA — '+camp.nome;
+  document.getElementById('modal-content').innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:16px">' +
+    '<div style="background:var(--surface);border-radius:10px;padding:14px">' +
+    '<div style="font-weight:700;margin-bottom:10px">Chi vuoi raggiungere?</div>' +
+    '<label style="display:flex;align-items:center;gap:10px;padding:10px;border:2px solid var(--accent);border-radius:10px;cursor:pointer;margin-bottom:8px">' +
+    '<input type="radio" name="wa-target" value="solo_no_email" checked style="width:16px;height:16px;accent-color:var(--accent)">' +
+    '<div><div style="font-weight:700;font-size:14px">📱 Solo chi NON ha email</div>' +
+    '<div style="font-size:12px;color:var(--muted)">'+soloCell.length+' contatti — obiettivo: raccogliere email</div></div>' +
+    '</label>' +
+    '<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:10px;cursor:pointer">' +
+    '<input type="radio" name="wa-target" value="tutti" style="width:16px;height:16px;accent-color:var(--accent)">' +
+    '<div><div style="font-weight:700;font-size:14px">👥 Tutti con cellulare</div>' +
+    '<div style="font-size:12px;color:var(--muted)">'+tutti.length+' contatti (inclusi chi ha già email)</div></div>' +
+    '</label>' +
+    '</div>' +
+    '<div style="background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.2);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2)">' +
+    '💡 Il messaggio WA chiederà di lasciare la email o cliccare sul link configuratore' +
+    '</div>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+    '<button class="btn-secondary" onclick="closeModal()">Annulla</button>' +
+    '<button class="btn-primary" data-cid="'+campagnaId+'" onclick="eseguiLancioWA(this.dataset.cid)">💬 Lancia</button>' +
+    '</div></div>';
+
+  // Salva dati per uso successivo
+  window._waCampTutti = tutti;
+  window._waCampSoloCell = soloCell;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function eseguiLancioWA(campagnaId){
+  const camp = campagneData.find(c=>c.id===campagnaId);
+  const target = document.querySelector('input[name="wa-target"]:checked')?.value||'solo_no_email';
+  const items = target==='solo_no_email' ? window._waCampSoloCell : window._waCampTutti;
+
+  if(!items||!items.length){ closeModal(); showToast('Nessun destinatario','warn'); return; }
+
+  waCampagnaLista = items.slice(0,50).map(i=>({
+    id: i._id, nome: i.nome, cellulare: i.cellulare,
+    comune: i.comune||'', tags: i.tags||[], _campagna: camp
+  }));
+  waCampagnaIndex = 0;
+  closeModal();
   mostraModaleWA();
 }
 
