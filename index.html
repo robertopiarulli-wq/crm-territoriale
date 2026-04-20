@@ -4621,6 +4621,72 @@ function emailDashSingolo(id, tipo){
 }
 
 function avviaCampagnaGiornalieraDash(){
+  // Se non ci sono campagne salvate usa quella generica
+  if(!campagneData.length){
+    _lanciaCampagnaDashGenerica();
+    return;
+  }
+
+  // Mostra selezione campagna
+  document.getElementById('modal-title').textContent = 'Scegli campagna Email';
+  const opzioni = campagneData.filter(c=>c.tipo!=='wa').map(c=>
+    '<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:10px;cursor:pointer;margin-bottom:6px">' +
+    '<input type="radio" name="camp-sel" value="'+c.id+'" style="accent-color:var(--accent)">' +
+    '<div><div style="font-weight:700">'+esc(c.nome)+'</div>' +
+    '<div style="font-size:11px;color:var(--muted)">'+esc(c.tag)+' · Inviati: '+(c.inviati||0)+'</div></div>' +
+    '</label>'
+  ).join('');
+
+  document.getElementById('modal-content').innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:12px">' +
+    '<div>'+opzioni+'</div>' +
+    '<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:10px;cursor:pointer">' +
+    '<input type="radio" name="camp-sel" value="generica" style="accent-color:var(--accent)">' +
+    '<div><div style="font-weight:700">📧 Campagna generica predefinita</div>' +
+    '<div style="font-size:11px;color:var(--muted)">Testo standard configuratore</div></div>' +
+    '</label>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+    '<button class="btn-secondary" onclick="closeModal()">Annulla</button>' +
+    '<button class="btn-primary" onclick="eseguiCampagnaDash()">📧 Lancia</button>' +
+    '</div></div>';
+
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function eseguiCampagnaDash(){
+  const sel = document.querySelector('input[name="camp-sel"]:checked')?.value;
+  if(!sel){ showToast('Seleziona una campagna','warn'); return; }
+  closeModal();
+
+  const tipo  = document.getElementById('dash-filter-tipo')?.value||'';
+  const stato = document.getElementById('dash-filter-stato')?.value||'';
+  const prov  = document.getElementById('dash-filter-prov')?.value||'';
+
+  if(sel==='generica'){
+    _lanciaCampagnaDashGenerica();
+    return;
+  }
+
+  const camp = campagneData.find(c=>c.id===sel);
+  if(!camp) return;
+
+  let items = getDashData().filter(i=>i.email && !i.tags.includes(camp.tag));
+  if(tipo)  items = items.filter(i=>i._tipo===tipo);
+  if(stato) items = items.filter(i=>i.stato===stato);
+  if(prov)  items = items.filter(i=>i.provincia===prov);
+
+  if(!items.length){ showToast('Nessun destinatario disponibile per questa campagna','warn'); return; }
+
+  campagnaLista = items.slice(0,50).map(i=>({
+    id: i._id, nome: i.nome, email: i.email,
+    comune: i.comune, provincia: i.provincia, regione: i.regione,
+    tags: i.tags||[], _campagna: camp
+  }));
+  campagnaIndex = 0;
+  mostraModaleInvio();
+}
+
+function _lanciaCampagnaDashGenerica(){
   const tipo  = document.getElementById('dash-filter-tipo')?.value||'';
   const stato = document.getElementById('dash-filter-stato')?.value||'';
   const prov  = document.getElementById('dash-filter-prov')?.value||'';
@@ -4630,17 +4696,12 @@ function avviaCampagnaGiornalieraDash(){
   if(stato) items = items.filter(i=>i.stato===stato);
   if(prov)  items = items.filter(i=>i.provincia===prov);
 
-  if(!items.length){ showToast('Nessun record con email (esclusi già inviati)','warn'); return; }
+  if(!items.length){ showToast('Nessun record con email disponibile','warn'); return; }
 
-  // Formato compatibile con generaTestoEmail
   campagnaLista = items.slice(0,50).map(i=>({
-    id:        i._id,
-    nome:      i.nome,
-    email:     i.email,
-    comune:    i.comune,
-    provincia: i.provincia,
-    regione:   i.regione,
-    tags:      i.tags||[]
+    id: i._id, nome: i.nome, email: i.email,
+    comune: i.comune, provincia: i.provincia, regione: i.regione,
+    tags: i.tags||[]
   }));
   campagnaIndex = 0;
   mostraModaleInvio();
