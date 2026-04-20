@@ -3978,7 +3978,7 @@ function generaTestoEmail(c){
       .replace(/{nome}/g, esc(c.nome||''))
       .replace(/{citta}/g, esc(citta))
       .replace(/{link}/g, link);
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:14px;color:#333;max-width:600px;margin:0 auto;padding:20px;line-height:1.6;background:#fff}.footer{margin-top:32px;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:16px}</style></head><body>${corpo.replace(/\n/g,'<br>')}<div class="footer">Per non ricevere ulteriori comunicazioni <a href="https://preventivopro.vercel.app/cancella?ref=REF_PLACEHOLDER&c=CAMP_PLACEHOLDER" style="color:#f97316">clicca qui</a>.</div>${pixel}</body></html>`;
+    let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:14px;color:#333;max-width:600px;margin:0 auto;padding:20px;line-height:1.6;background:#fff}.footer{margin-top:32px;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:16px}</style></head><body>${corpo.replace(/\n/g,'<br>')}<div class="footer">Per non ricevere ulteriori comunicazioni <a href="https://preventivopro.vercel.app/cancella?ref=REF_PLACEHOLDER&c=CAMP_PLACEHOLDER" style="color:#f97316">clicca qui</a>.</div>${pixel}</body></html>`;
     const oggetto = camp.oggetto_email||'Comunicazione riservata';
     const htmlFixed = html.replace('REF_PLACEHOLDER', lid).replace('CAMP_PLACEHOLDER', camp.tag);
     const plain = corpo.replace(/<[^>]+>/g,'');
