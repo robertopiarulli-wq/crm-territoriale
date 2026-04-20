@@ -685,13 +685,15 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
     <!-- ARCHIVIO CANCELLATI -->
     <!-- QUALITÀ CONTATTI -->
     <div class="panel" id="panel-campagne">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div>
           <div style="font-weight:800;font-size:18px">📣 Campagne</div>
           <div class="mono" style="font-size:11px;color:var(--muted);margin-top:2px">Gestisci campagne Email e WA con tag univoci</div>
         </div>
         <button onclick="apriNuovaCampagna()" class="btn-primary" style="font-size:12px">➕ Nuova Campagna</button>
       </div>
+      <!-- Template -->
+      <div id="campagne-templates" style="margin-bottom:20px"></div>
       <div id="campagne-list"></div>
     </div>
 
@@ -4783,12 +4785,37 @@ async function loadCampagne(){
 
 function renderCampagne(){
   const el = document.getElementById('campagne-list');
+  const elT = document.getElementById('campagne-templates');
   if(!el) return;
-  if(!campagneData.length){
+
+  const templates = campagneData.filter(c=>c.is_template);
+  const campagne  = campagneData.filter(c=>!c.is_template);
+
+  // Sezione template
+  if(elT){
+    if(templates.length){
+      elT.innerHTML =
+        '<div style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:14px;padding:14px 16px">' +
+        '<div style="font-weight:700;font-size:13px;color:#f59e0b;margin-bottom:10px">⭐ Template salvati — clona per creare una nuova campagna</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        templates.map(t=>
+          '<div style="background:#fff;border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px">' +
+          '<div><div style="font-weight:700;font-size:13px">'+esc(t.nome)+'</div>' +
+          '<div style="font-size:11px;color:var(--muted)">'+(t.tipo==='email'?'📧':t.tipo==='wa'?'💬':'📧💬')+'</div></div>' +
+          '<button data-cid="'+t.id+'" onclick="clonaCampagna(this.dataset.cid)" style="background:#f59e0b;color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:12px;cursor:pointer;font-weight:700">📋 Usa</button>' +
+          '</div>'
+        ).join('') +
+        '</div></div>';
+    } else {
+      elT.innerHTML = '';
+    }
+  }
+
+  if(!campagne.length){
     el.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted)"><div style="font-size:36px;margin-bottom:12px">📣</div><div style="font-weight:700;margin-bottom:6px">Nessuna campagna</div><div style="font-size:13px">Crea la tua prima campagna per iniziare</div></div>';
     return;
   }
-  el.innerHTML = campagneData.map(c => buildCampagnaCard(c)).join('');
+  el.innerHTML = campagne.map(c => buildCampagnaCard(c)).join('');
 }
 
 function buildCampagnaCard(c){
@@ -4814,6 +4841,8 @@ function buildCampagnaCard(c){
     '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">' +
     (c.tipo!=='wa'?'<button data-cid="'+c.id+'" onclick="lanciaCampagnaEmail(this.dataset.cid)" style="background:rgba(249,115,22,.12);color:var(--accent);border:1px solid rgba(249,115,22,.3);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-weight:700">📧 Lancia Email</button>':'') +
     (c.tipo!=='email'?'<button data-cid="'+c.id+'" onclick="lanciaCampagnaWA(this.dataset.cid)" style="background:rgba(37,211,102,.12);color:#25d366;border:1px solid rgba(37,211,102,.3);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-weight:700">💬 Lancia WA</button>':'') +
+    '<button data-cid="'+c.id+'" onclick="clonaCampagna(this.dataset.cid)" style="background:rgba(99,102,241,.1);color:#6366f1;border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-weight:700">📋 Clona</button>' +
+    (c.is_template?'<span style="background:rgba(245,158,11,.15);color:#f59e0b;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:800">⭐ TEMPLATE</span>':'<button data-cid="'+c.id+'" onclick="salvaTemplate(this.dataset.cid)" style="background:rgba(245,158,11,.1);color:#f59e0b;border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer">⭐ Template</button>') +
     '<button data-cid="'+c.id+'" onclick="modificaCampagna(this.dataset.cid)" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer">✏️ Modifica</button>' +
     '<button data-cid="'+c.id+'" onclick="eliminaCampagna(this.dataset.cid)" style="background:rgba(239,68,68,.1);color:var(--danger);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer">🗑</button>' +
     '</div></div></div>';
@@ -5018,6 +5047,48 @@ function eseguiLancioWA(campagnaId){
   waCampagnaIndex = 0;
   closeModal();
   mostraModaleWA();
+}
+
+async function salvaTemplate(id){
+  const {error} = await supabaseClient.from('campagne').update({is_template:true}).eq('id',id);
+  if(error){ showToast('Errore: '+error.message,'danger'); return; }
+  const c = campagneData.find(x=>x.id===id);
+  if(c) c.is_template = true;
+  renderCampagne();
+  showToast('⭐ Salvato come template!','success');
+}
+
+async function clonaCampagna(id){
+  await loadCampagne();
+  const orig = campagneData.find(c=>c.id===id);
+  if(!orig){ showToast('Campagna non trovata','warn'); return; }
+
+  const nuovoNome = prompt('Nome nuova campagna (clonata da "'+orig.nome+'"):',
+    orig.nome+' — copia');
+  if(!nuovoNome) return;
+
+  const nuovoTag = nuovoNome.toLowerCase()
+    .replace(/[àáâ]/g,'a').replace(/[èéê]/g,'e').replace(/[ìíî]/g,'i')
+    .replace(/[òóô]/g,'o').replace(/[ùúû]/g,'u')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+
+  const {data,error} = await supabaseClient.from('campagne').insert({
+    nome:         nuovoNome,
+    tipo:         orig.tipo,
+    tag:          nuovoTag+'-'+Date.now().toString().slice(-4),
+    link_promo:   orig.link_promo,
+    oggetto_email:orig.oggetto_email,
+    corpo_email:  orig.corpo_email,
+    testo_wa:     orig.testo_wa,
+    stato:        'bozza',
+    inviati:      0,
+    is_template:  false
+  }).select().single();
+
+  if(error){ showToast('Errore: '+error.message,'danger'); return; }
+  campagneData.unshift(data);
+  renderCampagne();
+  showToast('✅ Campagna clonata! Ora puoi modificarla.','success');
 }
 
 </script>
