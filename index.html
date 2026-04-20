@@ -4001,7 +4001,7 @@ function generaTestoEmail(c){
   const zona = citta ? `per ${citta} e provincia` : 'per la tua zona';
   const pixel = `<img src="${TRACKING_BASE}?lid=${lid}&c=${CAMPAGNA_NOME}" width="1" height="1" style="display:none">`;
 
-  const html = `<!DOCTYPE html>
+  let html = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
