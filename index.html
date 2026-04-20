@@ -269,8 +269,6 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
     <button class="tab-btn" onclick="switchTab('attivita')" id="tab-attivita">📝 Attività</button>
     <button class="tab-btn" onclick="switchTab('agenda')" id="tab-agenda">📅 Agenda<span class='tab-count' id='tab-count-agenda' style='display:none'>0</span></button>
     <button class="tab-btn" onclick="switchTab('kpi')" id="tab-kpi">📈 KPI</button>
-    <button class="tab-btn" onclick="switchTab('email-gruppo')" id="tab-email-gruppo">✉ Email Gruppo</button>
-    <button class="tab-btn" onclick="switchTab('wa-gruppo')" id="tab-wa-gruppo">💬 WA Gruppo</button>
     <button class="tab-btn" onclick="switchTab('qualita')" id="tab-qualita">🔍 Qualità</button>
     <button class="tab-btn archivio-tab" onclick="switchTab('archivio')" id="tab-archivio">🗑 Archivio<span class='tab-count' id='tab-count-archivio' style='display:none;background:rgba(239,68,68,.7)'>0</span></button>
   </div>
@@ -4572,24 +4570,28 @@ function emailDashSingolo(id, tipo){
 }
 
 function avviaCampagnaGiornalieraDash(){
-  // Prendi tutti con email dai filtri attivi
   const tipo  = document.getElementById('dash-filter-tipo')?.value||'';
   const stato = document.getElementById('dash-filter-stato')?.value||'';
   const prov  = document.getElementById('dash-filter-prov')?.value||'';
-  const soloEmail = document.getElementById('dash-solo-email')?.checked;
 
-  let items = getDashData().filter(i=>i.email);
+  let items = getDashData().filter(i=>i.email&&!i.tags.includes('email-configuratore'));
   if(tipo)  items = items.filter(i=>i._tipo===tipo);
   if(stato) items = items.filter(i=>i.stato===stato);
   if(prov)  items = items.filter(i=>i.provincia===prov);
 
-  // Converti in formato contatto per campagna
+  if(!items.length){ showToast('Nessun record con email (esclusi già inviati)','warn'); return; }
+
+  // Formato compatibile con generaTestoEmail
   campagnaLista = items.slice(0,50).map(i=>({
-    id: i._id, nome: i.nome, email: i.email,
-    comune: i.comune, provincia: i.provincia, regione: i.regione, tags: i.tags
+    id:        i._id,
+    nome:      i.nome,
+    email:     i.email,
+    comune:    i.comune,
+    provincia: i.provincia,
+    regione:   i.regione,
+    tags:      i.tags||[]
   }));
   campagnaIndex = 0;
-  if(!campagnaLista.length){ showToast('Nessun record con email nei filtri','warn'); return; }
   mostraModaleInvio();
 }
 
@@ -4597,16 +4599,20 @@ function avviaCampagnaWADash(){
   const tipo  = document.getElementById('dash-filter-tipo')?.value||'';
   const prov  = document.getElementById('dash-filter-prov')?.value||'';
 
-  let items = getDashData().filter(i=>i.cellulare);
+  let items = getDashData().filter(i=>i.cellulare&&!i.tags.includes('wa-configuratore'));
   if(tipo) items = items.filter(i=>i._tipo===tipo);
   if(prov) items = items.filter(i=>i.provincia===prov);
 
+  if(!items.length){ showToast('Nessun record con cellulare (esclusi già inviati)','warn'); return; }
+
   waCampagnaLista = items.slice(0,50).map(i=>({
-    id: i._id, nome: i.nome, cellulare: i.cellulare,
-    comune: i.comune, tags: i.tags
+    id:        i._id,
+    nome:      i.nome,
+    cellulare: i.cellulare,
+    comune:    i.comune||'',
+    tags:      i.tags||[]
   }));
   waCampagnaIndex = 0;
-  if(!waCampagnaLista.length){ showToast('Nessun record con cellulare nei filtri','warn'); return; }
   mostraModaleWA();
 }
 
