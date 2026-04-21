@@ -4054,7 +4054,7 @@ ${pixel}
 </body>
 </html>`;
 
-  const oggetto = (`Quotazioni riservate ai professionisti${regione?' di '+regione:''}`.trim());
+  const oggetto = 'Quotazioni riservate ai professionisti del settore';
   html = html.replace('REF_PLACEHOLDER', lid).replace('CAMP_PLACEHOLDER', CAMPAGNA_NOME);
   return { oggetto, html };
 }
