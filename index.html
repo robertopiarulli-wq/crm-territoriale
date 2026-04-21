@@ -3978,11 +3978,17 @@ function generaTestoEmail(c){
     const citta = c.comune||PROVINCE[c.provincia]?.n||c.provincia||'';
     const link  = camp.link_promo||LINK_PREVENTIVI;
     const pixel = `<img src="${TRACKING_BASE}?lid=${lid}&c=${camp.tag}" width="1" height="1" style="display:none">`;
+    const nomeVal = c.nome||c.ragione_sociale||'';
     const corpo = camp.corpo_email
-      .replace(/{nome}/g, esc(c.nome||''))
-      .replace(/{citta}/g, esc(citta))
-      .replace(/{link}/g, link);
-    let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:14px;color:#333;max-width:600px;margin:0 auto;padding:20px;line-height:1.6;background:#fff}.footer{margin-top:32px;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:16px}</style></head><body>${corpo.replace(/\n/g,'<br>')}<div class="footer">Per non ricevere ulteriori comunicazioni <a href="https://preventivopro.vercel.app/cancella?ref=REF_PLACEHOLDER&c=CAMP_PLACEHOLDER" style="color:#f97316">clicca qui</a>.</div>${pixel}</body></html>`;
+      .replace(/{nome}/g, nomeVal)
+      .replace(/{citta}/g, citta)
+      .replace(/{link}/g, link)
+      .replace(/\{nome\}/g, nomeVal)
+      .replace(/\{citta\}/g, citta)
+      .replace(/\{link\}/g, link);
+    const btnArancione = link ? `<table cellpadding="0" cellspacing="0" border="0" style="margin:24px 0"><tr><td bgcolor="#f97316" style="border-radius:8px;padding:0"><a href="${link}" style="display:inline-block;padding:14px 32px;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:8px;background-color:#f97316">${camp.cta_label||'Scopri le promozioni &rarr;'}</a></td></tr></table>` : '';
+    const firmaHtml = '<p style="margin-top:24px;font-size:13px;color:#555">Cordiali saluti,<br><strong>Roberto Piarulli</strong><br>Podopiu Medical Solutions</p>';
+    let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:14px;color:#333;max-width:600px;margin:0 auto;padding:20px;line-height:1.6;background:#fff}.footer{margin-top:32px;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:16px}</style></head><body>${corpo.replace(/\n/g,'<br>')}${btnArancione}${firmaHtml}<div class="footer">P.S. Per non ricevere ulteriori comunicazioni <a href="https://preventivopro.vercel.app/cancella?ref=REF_PLACEHOLDER&c=CAMP_PLACEHOLDER" style="color:#f97316">clicca qui</a>.</div>${pixel}</body></html>`;
     const oggetto = camp.oggetto_email||'Comunicazione riservata';
     const htmlFixed = html.replace('REF_PLACEHOLDER', lid).replace('CAMP_PLACEHOLDER', camp.tag);
     const plain = corpo.replace(/<[^>]+>/g,'');
@@ -4023,7 +4029,7 @@ function generaTestoEmail(c){
 <p>In pochi click puoi:</p>
 <ul>
   <li>Indicare le attrezzature di interesse per il tuo studio</li>
-  <li>Ricevere una quotazione su misura entro 24 ore</li>
+  <li>Ricevere una quotazione su misura entro 72 ore</li>
   <li>Scoprire le promozioni attive ${zona}</li>
 </ul>
 <table cellpadding="0" cellspacing="0" border="0" style="margin:24px 0">
@@ -4040,6 +4046,7 @@ function generaTestoEmail(c){
 </table>
 <p>Oppure, se preferisci richiedere subito un preventivo su un prodotto specifico:<br>
 <a href="${LINK_PREVENTIVI}?ref=${lid}" class="btn-link">Accedi alla piattaforma preventivi &rarr;</a></p>
+<p style="margin-top:24px;font-size:13px;color:#555">Cordiali saluti,<br><strong>Roberto Piarulli</strong><br>Podopiu Medical Solutions</p>
 <div class="footer">
   Per non ricevere ulteriori comunicazioni <a href="https://preventivopro.vercel.app/cancella?ref=REF_PLACEHOLDER&c=CAMP_PLACEHOLDER" style="color:#f97316">clicca qui per cancellarti</a> oppure rispondi con "Cancella" a questa email.
 </div>
@@ -4047,7 +4054,7 @@ ${pixel}
 </body>
 </html>`;
 
-  const oggetto = `Listino riservato professionisti ${regione} 2026`.trim();
+  const oggetto = (`Quotazioni riservate ai professionisti${regione?' di '+regione:''}`.trim());
   html = html.replace('REF_PLACEHOLDER', lid).replace('CAMP_PLACEHOLDER', CAMPAGNA_NOME);
   return { oggetto, html };
 }
@@ -4113,7 +4120,7 @@ function mostraModaleInvio(){
            style="flex:1;background:#0078d4;color:#fff;padding:11px;border-radius:9px;text-decoration:none;font-weight:700;font-size:13px;text-align:center">
           ✉ Apri Outlook
         </a>
-        <button onclick="segnaInviato(${c.id})" 
+        <button data-sid="${c.id}" onclick="segnaInviato(this.dataset.sid)" 
           style="flex:1;background:rgba(34,197,94,.15);color:var(--success);border:1px solid rgba(34,197,94,.4);border-radius:9px;padding:11px;cursor:pointer;font-weight:700;font-size:13px">
           ✅ Inviato → Prossimo
         </button>
