@@ -586,6 +586,7 @@ label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:
           <button onclick="avviaCampagnaGiornaliera()" class="btn-primary" style="white-space:nowrap">
             🚀 Campagna 1×1 <span id="campagna-count-badge" style="background:rgba(255,255,255,.25);border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px">0</span>
           </button>
+          <button onclick="apriTaggaInviati()" class="btn-secondary" style="font-size:12px;white-space:nowrap">🏷 Tagga inviati</button>
         </div>
       </div>
 
@@ -2039,7 +2040,7 @@ const PIPELINE_STAGES = [
 
 // Sposta contatto in nuovo stage
 async function moveToPipelineStage(contactId, newStage){
-  const c = contacts.find(x=>x.id===contactId);
+  const c = contacts.find(x=>String(x.id)===String(contactId));
   if(!c) return;
   // Rimuovi tutti gli stage precedenti dai tag
   const stageIds = PIPELINE_STAGES.map(s=>s.id);
@@ -5096,6 +5097,62 @@ async function clonaCampagna(id){
   campagneData.unshift(data);
   renderCampagne();
   showToast('✅ Campagna clonata! Ora puoi modificarla.','success');
+}
+
+// ── TAGGA LISTA COME INVIATA ─────────────────────────────────
+function apriTaggaInviati(){
+  const listeEmail = listeDist.email||[];
+  if(!listeEmail.length){ showToast('Nessuna lista email disponibile','warn'); return; }
+
+  const opzioni = listeEmail.map((l,i)=>
+    '<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:10px;cursor:pointer;margin-bottom:6px">'+
+    '<input type="radio" name="lista-tagga" value="'+i+'" style="accent-color:var(--accent)">'+
+    '<div><div style="font-weight:700">'+esc(l.nome)+'</div>'+
+    '<div style="font-size:11px;color:var(--muted)">'+(l.contatti||[]).length+' contatti</div></div>'+
+    '</label>'
+  ).join('');
+
+  document.getElementById('modal-title').textContent = '🏷 Tagga contatti come inviati';
+  document.getElementById('modal-content').innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:14px">'+
+    '<p style="font-size:13px;color:var(--muted)">Seleziona la lista — tutti i contatti verranno taggati con <code>email-configuratore</code> così non riceveranno di nuovo la stessa campagna.</p>'+
+    '<div>'+opzioni+'</div>'+
+    '<div>'+
+    '<label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:5px">TAG DA APPLICARE</label>'+
+    '<input id="tagga-tag-input" value="email-configuratore" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px;box-sizing:border-box">'+
+    '<div style="font-size:11px;color:var(--muted);margin-top:4px">Usa il tag della campagna per evitare duplicati futuri</div>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end">'+
+    '<button class="btn-secondary" onclick="closeModal()">Annulla</button>'+
+    '<button class="btn-primary" onclick="eseguiTaggaInviati()">🏷 Tagga tutti</button>'+
+    '</div></div>';
+  window._listeTagga = listeEmail;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+async function eseguiTaggaInviati(){
+  const sel = document.querySelector('input[name="lista-tagga"]:checked');
+  if(!sel){ showToast('Seleziona una lista','warn'); return; }
+  const lista = window._listeTagga[parseInt(sel.value)];
+  const tag = document.getElementById('tagga-tag-input')?.value.trim()||'email-configuratore';
+  if(!lista||!tag){ return; }
+
+  let taggati = 0;
+  for(const cid of (lista.contatti||[])){
+    const c = contacts.find(x=>String(x.id)===String(cid));
+    if(c){
+      const tags = c.tags||[];
+      if(!tags.includes(tag)){
+        tags.push(tag);
+        c.tags = tags;
+        await dbUpsert(c);
+        taggati++;
+      }
+    }
+  }
+  closeModal();
+  showToast('✅ '+taggati+' contatti taggati con "'+tag+'"','success');
+  updateAll();
 }
 
 </script>
