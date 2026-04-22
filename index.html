@@ -4173,7 +4173,7 @@ function copiaHTMLEmail(idx){
 }
 
 async function segnaInviato(contactId){
-  const c = contacts.find(x=>x.id===contactId);
+  const c = contacts.find(x=>String(x.id)===String(contactId));
   if(c){
     const tags = c.tags||[];
     const campTag = campagnaLista[campagnaIndex-1]?._campagna?.tag||'email-configuratore';
