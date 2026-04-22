@@ -3958,9 +3958,11 @@ function avviaCampagnaGiornaliera(){
   let lista  = contacts.filter(c=>c.email&&!(c.tags||[]).includes('cancellato')&&!(c.tags||[]).includes('email-configuratore'));
   if(prov) lista = lista.filter(c=>c.provincia===prov);
   if(tag)  lista = lista.filter(c=>(c.tags||[]).includes(tag));
-  // Priorità ai selezionati
+  // Priorita ai selezionati - ma esclude sempre gia taggati
   if(emailSelezionati.size>0){
-    lista = [...emailSelezionati].map(id=>contacts.find(c=>c.id===id)).filter(c=>c&&c.email);
+    lista = [...emailSelezionati]
+      .map(id=>contacts.find(c=>c.id===id))
+      .filter(c=>c&&c.email&&!(c.tags||[]).includes('email-configuratore')&&!(c.tags||[]).includes('cancellato'));
   }
   lista = lista.slice(0, MAX_GIORNO);
 
