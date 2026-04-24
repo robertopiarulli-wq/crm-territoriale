@@ -4702,7 +4702,7 @@ function eseguiCampagnaDash(){
   const camp = campagneData.find(c=>c.id===sel);
   if(!camp) return;
 
-  let items = getDashData().filter(i=>i.email && !i.tags.includes(camp.tag));
+  let items = getDashData().filter(i=>i.email && !i.tags.includes(camp.tag) && i.stato!=='inviato');
   if(tipo)  items = items.filter(i=>i._tipo===tipo);
   if(stato) items = items.filter(i=>i.stato===stato);
   if(prov)  items = items.filter(i=>i.provincia===prov);
@@ -4723,7 +4723,7 @@ function _lanciaCampagnaDashGenerica(){
   const stato = document.getElementById('dash-filter-stato')?.value||'';
   const prov  = document.getElementById('dash-filter-prov')?.value||'';
 
-  let items = getDashData().filter(i=>i.email&&!i.tags.includes('email-configuratore'));
+  let items = getDashData().filter(i=>i.email&&!i.tags.includes('email-configuratore')&&i.stato!=='inviato');
   if(tipo)  items = items.filter(i=>i._tipo===tipo);
   if(stato) items = items.filter(i=>i.stato===stato);
   if(prov)  items = items.filter(i=>i.provincia===prov);
