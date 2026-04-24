@@ -4201,14 +4201,18 @@ async function segnaInviato(contactId){
     // E' un lead - aggiorna lead_scouting
     const lead = leadData.find(x=>String(x.id)===String(contactId));
     if(lead){
+      const campTag = campagnaLista[campagnaIndex]?._campagna?.tag||'email-configuratore';
+      const leadTags = Array.isArray(lead.tags) ? [...lead.tags] : [];
+      if(!leadTags.includes(campTag)) leadTags.push(campTag);
       if(useCloud){
         const {error} = await supabaseClient.from('lead_scouting')
-          .update({stato:'inviato'})
+          .update({stato:'inviato', tags: leadTags})
           .eq('id', contactId);
         if(error) console.error('Lead update error:', error);
-        else showToast('✅ Lead aggiornato: inviato','success');
+        else showToast('✅ Lead taggato: '+campTag,'success');
       }
       lead.stato = 'inviato';
+      lead.tags = leadTags;
     }
   }
 
@@ -4501,7 +4505,7 @@ function getDashData(){
       regione:  l.regione||'',
       stato:    l.stato||'nuovo',
       fonte:    l.fonte||'manuale',
-      tags:     [],
+      tags:     Array.isArray(l.tags)?l.tags:[],
       interesse:l.interesse||'',
       ultimoContatto: l.created_at||'',
       _raw:     l
@@ -4702,7 +4706,7 @@ function eseguiCampagnaDash(){
   const camp = campagneData.find(c=>c.id===sel);
   if(!camp) return;
 
-  let items = getDashData().filter(i=>i.email && !i.tags.includes(camp.tag) && i.stato!=='inviato');
+  let items = getDashData().filter(i=>i.email && !i.tags.includes(camp.tag));
   if(tipo)  items = items.filter(i=>i._tipo===tipo);
   if(stato) items = items.filter(i=>i.stato===stato);
   if(prov)  items = items.filter(i=>i.provincia===prov);
@@ -4723,7 +4727,7 @@ function _lanciaCampagnaDashGenerica(){
   const stato = document.getElementById('dash-filter-stato')?.value||'';
   const prov  = document.getElementById('dash-filter-prov')?.value||'';
 
-  let items = getDashData().filter(i=>i.email&&!i.tags.includes('email-configuratore')&&i.stato!=='inviato');
+  let items = getDashData().filter(i=>i.email&&!i.tags.includes('email-configuratore'));
   if(tipo)  items = items.filter(i=>i._tipo===tipo);
   if(stato) items = items.filter(i=>i.stato===stato);
   if(prov)  items = items.filter(i=>i.provincia===prov);
