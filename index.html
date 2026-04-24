@@ -4175,11 +4175,9 @@ function copiaHTMLEmail(idx){
 }
 
 async function segnaInviato(contactId){
-  const campItem = campagnaLista[campagnaIndex-1];
+  // campagnaIndex NON e' ancora incrementato - usa indice corrente
+  const campItem = campagnaLista[campagnaIndex];
   const campTag = campItem?._campagna?.tag||'email-configuratore';
-  console.log('segnaInviato:', contactId, 'tag:', campTag, 'campItem:', campItem?.nome);
-  console.log('contacts match:', contacts.find(x=>String(x.id)===String(contactId)));
-  console.log('lead match:', leadData.find(x=>String(x.id)===String(contactId)));
 
   // Aggiorna contatore campagna
   if(campItem?._campagna?.id){
@@ -4195,20 +4193,22 @@ async function segnaInviato(contactId){
     if(!tags.includes(campTag)) tags.push(campTag);
     c.tags = tags;
     await dbUpsert(c);
-    // Aggiorna anche lead collegato
     if(useCloud && c.email){
       await supabaseClient.from('lead_scouting').update({stato:'inviato'}).eq('email',c.email);
     }
+    showToast('✅ Taggato: '+campTag,'success');
   } else {
-    // Prova come lead (uuid da Dashboard)
+    // E' un lead - aggiorna lead_scouting
     const lead = leadData.find(x=>String(x.id)===String(contactId));
-    if(lead && useCloud){
-      await supabaseClient.from('lead_scouting')
-        .update({stato:'inviato', note: 'Email inviata: '+campTag})
-        .eq('id', String(contactId));
+    if(lead){
+      if(useCloud){
+        const {error} = await supabaseClient.from('lead_scouting')
+          .update({stato:'inviato'})
+          .eq('id', contactId);
+        if(error) console.error('Lead update error:', error);
+        else showToast('✅ Lead aggiornato: inviato','success');
+      }
       lead.stato = 'inviato';
-      if(!lead.tags) lead.tags = [];
-      if(!lead.tags.includes(campTag)) lead.tags.push(campTag);
     }
   }
 
