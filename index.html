@@ -4460,19 +4460,41 @@ function mostraModaleWA(){
 }
 
 async function segnaInviatoWA(contactId){
+  // Usa indice CORRENTE (non ancora incrementato)
+  const waItem = waCampagnaLista[waCampagnaIndex];
+  const waCampTag = waItem?._campagna?.tag||'wa-configuratore';
+
+  // Aggiorna contatore campagna
+  if(waItem?._campagna?.id){
+    const cid = waItem._campagna.id;
+    const camp = campagneData.find(x=>x.id===cid);
+    if(camp){ camp.inviati=(camp.inviati||0)+1; supabaseClient.from('campagne').update({inviati:camp.inviati}).eq('id',cid).then(()=>{}); }
+  }
+
+  // Prova come contatto
   const c = contacts.find(x=>String(x.id)===String(contactId));
   if(c){
     const tags = c.tags||[];
-    const waCampTag = waCampagnaLista[waCampagnaIndex-1]?._campagna?.tag||'wa-configuratore';
     if(!tags.includes(waCampTag)) tags.push(waCampTag);
-    if(waCampagnaLista[waCampagnaIndex-1]?._campagna?.id){
-      const cid = waCampagnaLista[waCampagnaIndex-1]._campagna.id;
-      const camp = campagneData.find(x=>x.id===cid);
-      if(camp){ camp.inviati=(camp.inviati||0)+1; supabaseClient.from('campagne').update({inviati:camp.inviati}).eq('id',cid).then(()=>{}); }
-    }
     c.tags = tags;
     await dbUpsert(c);
+    showToast('✅ Taggato: '+waCampTag,'success');
+  } else {
+    // E' un lead
+    const lead = leadData.find(x=>String(x.id)===String(contactId));
+    if(lead){
+      const leadTags = Array.isArray(lead.tags)?[...lead.tags]:[];
+      if(!leadTags.includes(waCampTag)) leadTags.push(waCampTag);
+      if(useCloud){
+        await supabaseClient.from('lead_scouting')
+          .update({tags: leadTags})
+          .eq('id', contactId);
+      }
+      lead.tags = leadTags;
+      showToast('✅ Lead taggato: '+waCampTag,'success');
+    }
   }
+
   waCampagnaIndex++;
   mostraModaleWA();
 }
