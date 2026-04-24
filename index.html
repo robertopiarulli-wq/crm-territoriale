@@ -4177,6 +4177,9 @@ function copiaHTMLEmail(idx){
 async function segnaInviato(contactId){
   const campItem = campagnaLista[campagnaIndex-1];
   const campTag = campItem?._campagna?.tag||'email-configuratore';
+  console.log('segnaInviato:', contactId, 'tag:', campTag, 'campItem:', campItem?.nome);
+  console.log('contacts match:', contacts.find(x=>String(x.id)===String(contactId)));
+  console.log('lead match:', leadData.find(x=>String(x.id)===String(contactId)));
 
   // Aggiorna contatore campagna
   if(campItem?._campagna?.id){
